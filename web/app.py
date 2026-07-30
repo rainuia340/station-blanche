@@ -232,6 +232,37 @@ def api_disable_kiosk():
     return jsonify({"ok": True, "message": "Mode kiosk désactivé. Retour au bureau..."})
 
 
+@app.route("/api/admin/uninstall", methods=["POST"])
+@admin_required
+def api_uninstall():
+    data = request.get_json(silent=True) or {}
+    password = data.get("password", "")
+    confirm = data.get("confirm_text", "")
+
+    if confirm != "DESINSTALLER":
+        return jsonify({"error": "Saisissez DESINSTALLER pour confirmer"}), 400
+
+    cfg = load_config()
+    if not verify_admin(cfg.get("admin_user", "admin"), password):
+        return jsonify({"error": "Mot de passe incorrect"}), 401
+
+    script = f"{INSTALL_DIR}/scripts/uninstall.sh"
+    if not os.path.isfile(script):
+        return jsonify({"error": "Script de désinstallation introuvable"}), 500
+
+    subprocess.Popen(
+        ["nohup", "bash", script, "--reboot"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    return jsonify({
+        "ok": True,
+        "message": "Désinstallation lancée. La machine va redémarrer dans quelques secondes.",
+    })
+
+
 @app.route("/api/admin/config")
 @admin_required
 def api_admin_config():

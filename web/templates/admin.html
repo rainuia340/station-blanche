@@ -73,6 +73,26 @@
           <pre id="log-content" class="log-viewer">Sélectionnez un log pour afficher son contenu.</pre>
         </div>
       </section>
+
+      <section class="panel panel-full panel-danger">
+        <h2>Désinstallation</h2>
+        <p>Supprime Station Blanche et restaure Peppermint en configuration normale. Cette action est <strong>irréversible</strong>.</p>
+        <ul class="uninstall-list">
+          <li>Arrêt du service web et du mode kiosk</li>
+          <li>Suppression de l'utilisateur <code>station</code> et de l'auto-login</li>
+          <li>Suppression de <code>/opt/station-blanche</code> et de la configuration</li>
+          <li>Désactivation du pare-feu UFW et restauration des services</li>
+          <li>Redémarrage automatique</li>
+        </ul>
+        <form id="uninstall-form">
+          <label for="uninstall-password">Mot de passe administrateur</label>
+          <input type="password" id="uninstall-password" required>
+          <label for="uninstall-confirm">Tapez <code>DESINSTALLER</code> pour confirmer</label>
+          <input type="text" id="uninstall-confirm" required placeholder="DESINSTALLER" autocomplete="off">
+          <button type="submit" class="btn btn-danger">Désinstaller Station Blanche</button>
+        </form>
+        <p id="uninstall-msg" class="success-msg hidden"></p>
+      </section>
     </div>
   </main>
   <script src="/static/js/admin.js"></script>

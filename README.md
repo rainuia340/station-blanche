@@ -36,6 +36,7 @@ sudo reboot
 - **Changer le mot de passe admin**
 - **Mode kiosk** — activer ou quitter le mode plein écran Firefox
 - **Journal des analyses** — consulter l'historique des scans
+- **Désinstallation** — supprime Station Blanche et restaure Peppermint normal (redémarrage auto)
 
 ### Logs de scan
 
@@ -85,8 +86,10 @@ station-blanche/
 │   ├── configure-clamav.sh        # Antivirus
 │   ├── configure-hardening.sh     # Durcissement ANSSI
 │   ├── start-kiosk.sh             # Lance Firefox kiosk
+│   ├── apply-wallpaper.sh         # Fond d'écran XFCE
+│   ├── enable-kiosk.sh            # Réactive Firefox kiosk
 │   ├── disable-kiosk.sh           # Quitte le mode kiosk
-│   └── apply-wallpaper.sh         # Fond d'écran XFCE
+│   └── uninstall.sh               # Désinstalle et restaure Peppermint
 ├── systemd/station-blanche-web.service
 └── config/firefox-kiosk.desktop
 ```

@@ -232,3 +232,36 @@ async function loadLogs() {
 }
 
 if (logsList) loadLogs();
+
+// --- Désinstallation ---
+const uninstallForm = document.getElementById("uninstall-form");
+if (uninstallForm) {
+  uninstallForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("uninstall-msg");
+    const password = document.getElementById("uninstall-password").value;
+    const confirmText = document.getElementById("uninstall-confirm").value;
+
+    if (
+      !window.confirm(
+        "Confirmer la désinstallation complète de Station Blanche ?\n\nLa machine va redémarrer et Peppermint sera restauré en configuration normale."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/uninstall", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, confirm_text: confirmText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      showMsg(msg, data.message);
+      uninstallForm.querySelector("button").disabled = true;
+    } catch (err) {
+      showMsg(msg, err.message, true);
+    }
+  });
+}
