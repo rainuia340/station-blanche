@@ -24,6 +24,16 @@ from config_manager import (
     save_config,
     verify_admin,
 )
+from network_manager import (
+    configure_ipv4,
+    get_wifi_radio,
+    is_available as nm_available,
+    list_devices,
+    set_device_state,
+    set_wifi_radio,
+    wifi_connect,
+    wifi_scan,
+)
 from scan_engine import ScanEngine
 from scanners import ALL_SCANNERS, scanners_status
 
@@ -36,8 +46,6 @@ PRESETS_DIR = APP_DIR / "static" / "img" / "presets"
 ensure_config()
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = get_secret_key()
-
-from scan_engine import ScanEngine
 
 scan_engine = ScanEngine()
 
@@ -289,6 +297,99 @@ def api_uninstall():
 @admin_required
 def api_admin_config():
     return jsonify(load_config())
+
+
+# --- Réseau ---
+
+@app.route("/api/admin/network/status")
+@admin_required
+def api_network_status():
+    if not nm_available():
+        return jsonify({"error": "NetworkManager (nmcli) non disponible"}), 503
+    try:
+        return jsonify({
+            "available": True,
+            "wifi_radio": get_wifi_radio(),
+            "devices": list_devices(),
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/network/device", methods=["POST"])
+@admin_required
+def api_network_device():
+    data = request.get_json(silent=True) or {}
+    device = data.get("device", "")
+    enabled = data.get("enabled", True)
+    try:
+        ok, msg = set_device_state(device, enabled)
+        return jsonify({"ok": ok, "message": msg})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/network/wifi/radio", methods=["POST"])
+@admin_required
+def api_network_wifi_radio():
+    data = request.get_json(silent=True) or {}
+    try:
+        ok, msg = set_wifi_radio(bool(data.get("enabled", True)))
+        return jsonify({"ok": ok, "message": msg})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/network/ipv4", methods=["POST"])
+@admin_required
+def api_network_ipv4():
+    data = request.get_json(silent=True) or {}
+    try:
+        ok, msg = configure_ipv4(
+            device=data.get("device", ""),
+            method=data.get("method", "auto"),
+            address=data.get("address"),
+            prefix=int(data.get("prefix", 24)),
+            gateway=data.get("gateway"),
+            dns=data.get("dns"),
+        )
+        return jsonify({"ok": ok, "message": msg})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/network/wifi/scan")
+@admin_required
+def api_network_wifi_scan():
+    device = request.args.get("device")
+    try:
+        networks = wifi_scan(device or None)
+        return jsonify({"networks": networks})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/admin/network/wifi/connect", methods=["POST"])
+@admin_required
+def api_network_wifi_connect():
+    data = request.get_json(silent=True) or {}
+    try:
+        ok, msg = wifi_connect(
+            ssid=data.get("ssid", ""),
+            password=data.get("password"),
+            device=data.get("device"),
+        )
+        return jsonify({"ok": ok, "message": msg})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 if __name__ == "__main__":

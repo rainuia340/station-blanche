@@ -37,6 +37,7 @@ sudo reboot
 - **Mode kiosk** — activer ou quitter le mode plein écran Firefox
 - **Journal des analyses** — consulter l'historique des scans
 - **Désinstallation** — supprime Station Blanche et restaure Peppermint normal (redémarrage auto)
+- **Réseau** — gestion Ethernet/Wi-Fi, DHCP ou IP fixe, scan et connexion Wi-Fi pour les MAJ
 
 ### Moteurs antivirus (3 gratuits)
 

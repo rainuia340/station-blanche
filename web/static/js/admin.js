@@ -252,6 +252,211 @@ async function loadLogs() {
 
 if (logsList) loadLogs();
 
+// --- Réseau ---
+const networkPanel = document.getElementById("network-panel");
+let selectedWifiSsid = "";
+
+function showNetworkMsg(text, isError = false) {
+  const el = document.getElementById("network-msg");
+  if (!el) return;
+  showMsg(el, text, isError);
+}
+
+function renderNetworkDevices(devices) {
+  const container = document.getElementById("network-devices");
+  const wifiSelect = document.getElementById("wifi-device-select");
+  if (!container) return;
+
+  if (!devices.length) {
+    container.innerHTML = "<p class='muted'>Aucune interface réseau détectée.</p>";
+    return;
+  }
+
+  container.innerHTML = devices.map((d) => {
+    const isStatic = d.ipv4_method === "manual";
+    return `
+      <div class="net-card" data-device="${d.device}">
+        <div class="net-card-header">
+          <div>
+            <div class="net-card-title">${d.device}</div>
+            <div class="net-card-type">${d.type_label}</div>
+          </div>
+          <span class="net-badge ${d.connected ? "connected" : "disconnected"}">
+            ${d.connected ? "Connecté" : d.state}
+          </span>
+        </div>
+        <div class="net-info">
+          IP : ${d.ipv4_address || "—"}<br>
+          Mode : ${d.ipv4_method === "manual" ? "IP fixe" : d.ipv4_method === "auto" ? "DHCP" : d.ipv4_method || "—"}<br>
+          Passerelle : ${d.ipv4_gateway || "—"}<br>
+          DNS : ${d.ipv4_dns || "—"}
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary btn-net-toggle" data-device="${d.device}" data-enabled="${!d.connected}">
+            ${d.connected ? "Déconnecter" : "Connecter"}
+          </button>
+        </div>
+        <form class="net-form net-ipv4-form" data-device="${d.device}">
+          <label>Configuration IPv4</label>
+          <select class="ipv4-method">
+            <option value="auto" ${!isStatic ? "selected" : ""}>DHCP (automatique)</option>
+            <option value="manual" ${isStatic ? "selected" : ""}>IP fixe</option>
+          </select>
+          <div class="static-fields ${isStatic ? "" : "hidden"}">
+            <label>Adresse IP</label>
+            <input type="text" class="ipv4-address" placeholder="192.168.1.100" value="${d.ipv4_address || ""}">
+            <label>Masque (préfixe)</label>
+            <input type="number" class="ipv4-prefix" value="24" min="1" max="32">
+            <label>Passerelle</label>
+            <input type="text" class="ipv4-gateway" placeholder="192.168.1.1" value="${d.ipv4_gateway || ""}">
+            <label>DNS</label>
+            <input type="text" class="ipv4-dns" placeholder="8.8.8.8" value="${d.ipv4_dns || ""}">
+          </div>
+          <button type="submit" class="btn btn-primary">Appliquer</button>
+        </form>
+      </div>`;
+  }).join("");
+
+  if (wifiSelect) {
+    const wifiDevs = devices.filter((d) => d.type === "wifi");
+    wifiSelect.innerHTML = '<option value="">Interface Wi-Fi...</option>' +
+      wifiDevs.map((d) => `<option value="${d.device}">${d.device}</option>`).join("");
+    if (wifiDevs.length === 1) wifiSelect.value = wifiDevs[0].device;
+  }
+
+  container.querySelectorAll(".ipv4-method").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      const fields = sel.closest(".net-form").querySelector(".static-fields");
+      fields.classList.toggle("hidden", sel.value !== "manual");
+    });
+  });
+
+  container.querySelectorAll(".net-ipv4-form").forEach((form) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const device = form.dataset.device;
+      const method = form.querySelector(".ipv4-method").value;
+      const body = { device, method };
+      if (method === "manual") {
+        body.address = form.querySelector(".ipv4-address").value;
+        body.prefix = parseInt(form.querySelector(".ipv4-prefix").value, 10);
+        body.gateway = form.querySelector(".ipv4-gateway").value;
+        body.dns = form.querySelector(".ipv4-dns").value;
+      }
+      try {
+        const data = await api("/api/admin/network/ipv4", { method: "POST", body: JSON.stringify(body) });
+        showNetworkMsg(data.message || "Configuration appliquée.");
+        loadNetwork();
+      } catch (err) {
+        showNetworkMsg(err.message, true);
+      }
+    });
+  });
+
+  container.querySelectorAll(".btn-net-toggle").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        const data = await api("/api/admin/network/device", {
+          method: "POST",
+          body: JSON.stringify({
+            device: btn.dataset.device,
+            enabled: btn.dataset.enabled === "true",
+          }),
+        });
+        showNetworkMsg(data.message);
+        loadNetwork();
+      } catch (err) {
+        showNetworkMsg(err.message, true);
+      }
+    });
+  });
+}
+
+async function loadNetwork() {
+  if (!networkPanel) return;
+  try {
+    const data = await api("/api/admin/network/status");
+    const radioToggle = document.getElementById("wifi-radio-toggle");
+    if (radioToggle) radioToggle.checked = data.wifi_radio;
+    renderNetworkDevices(data.devices);
+  } catch (err) {
+    const container = document.getElementById("network-devices");
+    if (container) container.innerHTML = `<p class='muted'>${err.message}</p>`;
+  }
+}
+
+if (networkPanel) {
+  loadNetwork();
+
+  document.getElementById("btn-network-refresh")?.addEventListener("click", loadNetwork);
+
+  document.getElementById("wifi-radio-toggle")?.addEventListener("change", async (e) => {
+    try {
+      const data = await api("/api/admin/network/wifi/radio", {
+        method: "POST",
+        body: JSON.stringify({ enabled: e.target.checked }),
+      });
+      showNetworkMsg(data.message);
+      loadNetwork();
+    } catch (err) {
+      showNetworkMsg(err.message, true);
+      e.target.checked = !e.target.checked;
+    }
+  });
+
+  document.getElementById("btn-wifi-scan")?.addEventListener("click", async () => {
+    const device = document.getElementById("wifi-device-select")?.value;
+    const list = document.getElementById("wifi-networks");
+    list.innerHTML = "<p class='muted' style='padding:0.75rem'>Scan en cours...</p>";
+    try {
+      const url = device
+        ? `/api/admin/network/wifi/scan?device=${encodeURIComponent(device)}`
+        : "/api/admin/network/wifi/scan";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      if (!data.networks.length) {
+        list.innerHTML = "<p class='muted' style='padding:0.75rem'>Aucun réseau détecté.</p>";
+        return;
+      }
+      list.innerHTML = data.networks.map((n) => `
+        <div class="wifi-item" data-ssid="${n.ssid.replace(/"/g, "&quot;")}">
+          <span>${n.in_use ? "★ " : ""}${n.ssid} <small>(${n.security})</small></span>
+          <span class="signal">${n.signal}%</span>
+        </div>`).join("");
+
+      list.querySelectorAll(".wifi-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          list.querySelectorAll(".wifi-item").forEach((i) => i.classList.remove("active"));
+          item.classList.add("active");
+          selectedWifiSsid = item.dataset.ssid;
+          document.getElementById("wifi-selected-ssid").textContent = selectedWifiSsid;
+          document.getElementById("wifi-connect-form").classList.remove("hidden");
+        });
+      });
+    } catch (err) {
+      list.innerHTML = `<p class='muted' style='padding:0.75rem'>${err.message}</p>`;
+    }
+  });
+
+  document.getElementById("wifi-connect-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!selectedWifiSsid) return;
+    const device = document.getElementById("wifi-device-select")?.value;
+    const password = document.getElementById("wifi-password").value;
+    try {
+      const data = await api("/api/admin/network/wifi/connect", {
+        method: "POST",
+        body: JSON.stringify({ ssid: selectedWifiSsid, password, device: device || undefined }),
+      });
+      showNetworkMsg(data.message || "Connecté au Wi-Fi.");
+      loadNetwork();
+    } catch (err) {
+      showNetworkMsg(err.message, true);
+    }
+  });
+}
+
 // --- Désinstallation ---
 const uninstallForm = document.getElementById("uninstall-form");
 if (uninstallForm) {

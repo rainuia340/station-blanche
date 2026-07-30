@@ -81,7 +81,7 @@ install_prerequisites() {
         clamav clamav-freshclam \
         ntfs-3g exfatprogs \
         ufw auditd rsyslog \
-        xfconf \
+        xfconf network-manager \
         > /dev/null
     log "Prérequis installés."
 }
@@ -111,6 +111,7 @@ run_install_scripts() {
         "scripts/configure-users.sh"
         "scripts/configure-web.sh"
         "scripts/configure-scanners.sh"
+        "scripts/configure-network.sh"
         "scripts/configure-autostart.sh"
         "scripts/apply-wallpaper.sh"
     )

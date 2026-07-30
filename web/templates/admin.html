@@ -64,6 +64,43 @@
         <p id="kiosk-msg" class="success-msg hidden"></p>
       </section>
 
+      <section class="panel panel-full" id="network-panel">
+        <h2>Réseau</h2>
+        <p>Configurer les cartes Ethernet et Wi-Fi pour les mises à jour. La station doit rester hors réseau en usage normal.</p>
+
+        <div class="network-toolbar">
+          <button id="btn-network-refresh" class="btn btn-secondary">Actualiser</button>
+          <label class="wifi-radio-toggle">
+            <input type="checkbox" id="wifi-radio-toggle">
+            Wi-Fi activé
+          </label>
+        </div>
+        <p id="network-msg" class="success-msg hidden"></p>
+
+        <div id="network-devices" class="network-devices">
+          <p class="muted">Chargement des interfaces...</p>
+        </div>
+
+        <div class="wifi-section">
+          <h3>Connexion Wi-Fi</h3>
+          <div class="wifi-toolbar">
+            <select id="wifi-device-select" class="network-select">
+              <option value="">Interface Wi-Fi...</option>
+            </select>
+            <button id="btn-wifi-scan" class="btn btn-primary">Scanner les réseaux</button>
+          </div>
+          <div id="wifi-networks" class="wifi-networks">
+            <p class="muted">Cliquez sur « Scanner » pour détecter les réseaux disponibles.</p>
+          </div>
+          <form id="wifi-connect-form" class="wifi-connect-form hidden">
+            <p>Réseau sélectionné : <strong id="wifi-selected-ssid"></strong></p>
+            <label for="wifi-password">Mot de passe Wi-Fi</label>
+            <input type="password" id="wifi-password" placeholder="Mot de passe (laisser vide si ouvert)">
+            <button type="submit" class="btn btn-primary">Se connecter</button>
+          </form>
+        </div>
+      </section>
+
       <section class="panel panel-full">
         <h2>Journal des analyses</h2>
         <p>Historique des scans (format : Date-Heure-N°Série.log). Une copie est aussi déposée sur la clé dans <code>STATION_BLANCHE/</code>.</p>
