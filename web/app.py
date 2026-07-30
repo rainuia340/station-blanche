@@ -26,9 +26,11 @@ from config_manager import (
 )
 from scan_engine import ScanEngine
 
+LOG_DIR = "/var/log/antivirscan"
 APP_DIR = Path(__file__).resolve().parent
 INSTALL_DIR = "/opt/station-blanche"
 WALLPAPER_DIR = "/etc/station-blanche/wallpapers"
+PRESETS_DIR = APP_DIR / "static" / "img" / "presets"
 
 ensure_config()
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -145,14 +147,17 @@ def api_wallpaper():
 
     if "file" in request.files and request.files["file"].filename:
         f = request.files["file"]
-        dest = os.path.join(WALLPAPER_DIR, "custom.jpg")
+        ext = Path(f.filename).suffix or ".jpg"
+        dest = os.path.join(WALLPAPER_DIR, f"custom{ext}")
         f.save(dest)
         cfg["wallpaper"] = dest
     elif request.form.get("preset"):
-        preset = request.form["preset"]
-        path = APP_DIR / "static" / "img" / "presets" / preset
-        if path.exists():
+        preset = os.path.basename(request.form["preset"])
+        path = PRESETS_DIR / preset
+        if path.exists() and path.parent.resolve() == PRESETS_DIR.resolve():
             cfg["wallpaper"] = str(path)
+        else:
+            return jsonify({"error": "Preset introuvable"}), 400
 
     save_config(cfg)
     subprocess.run(
@@ -160,6 +165,61 @@ def api_wallpaper():
         check=False,
     )
     return jsonify({"ok": True, "wallpaper": cfg["wallpaper"]})
+
+
+@app.route("/api/admin/wallpaper/presets")
+@admin_required
+def api_wallpaper_presets():
+    presets = []
+    if PRESETS_DIR.is_dir():
+        for f in sorted(PRESETS_DIR.iterdir()):
+            if f.suffix.lower() in (".svg", ".jpg", ".jpeg", ".png"):
+                presets.append({"name": f.stem, "file": f.name})
+    return jsonify(presets)
+
+
+@app.route("/api/admin/enable-kiosk", methods=["POST"])
+@admin_required
+def api_enable_kiosk():
+    cfg = load_config()
+    cfg["kiosk_enabled"] = True
+    save_config(cfg)
+    subprocess.Popen(["bash", f"{INSTALL_DIR}/scripts/enable-kiosk.sh"])
+    return jsonify({"ok": True, "message": "Mode kiosk réactivé."})
+
+
+@app.route("/api/admin/logs")
+@admin_required
+def api_list_logs():
+    logs = []
+    if os.path.isdir(LOG_DIR):
+        for name in sorted(os.listdir(LOG_DIR), reverse=True):
+            if not name.endswith(".log"):
+                continue
+            path = os.path.join(LOG_DIR, name)
+            if not os.path.isfile(path):
+                continue
+            stat = os.stat(path)
+            logs.append({
+                "filename": name,
+                "size": stat.st_size,
+                "modified": stat.st_mtime,
+            })
+    return jsonify(logs)
+
+
+@app.route("/api/admin/logs/<path:filename>")
+@admin_required
+def api_get_log(filename):
+    safe_name = os.path.basename(filename)
+    if not safe_name.endswith(".log") or ".." in safe_name:
+        return jsonify({"error": "Fichier invalide"}), 400
+    path = os.path.join(LOG_DIR, safe_name)
+    if not os.path.isfile(path):
+        return jsonify({"error": "Log introuvable"}), 404
+    with open(path, encoding="utf-8", errors="replace") as f:
+        content = f.read()
+    return jsonify({"filename": safe_name, "content": content})
 
 
 @app.route("/api/admin/disable-kiosk", methods=["POST"])

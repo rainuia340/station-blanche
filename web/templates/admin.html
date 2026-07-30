@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="page-admin">
-  <main class="container">
+  <main class="container container-wide">
     <header class="header header-row">
       <div>
         <a href="/" class="back-link">← Accueil</a>
@@ -29,9 +29,10 @@
 
       <section class="panel">
         <h2>Fond d'écran</h2>
-        <p>Changer le fond d'écran du bureau.</p>
-        <form id="wallpaper-form">
-          <label for="wallpaper-file">Importer une image</label>
+        <p>Choisir un fond prédéfini ou importer une image.</p>
+        <div id="wallpaper-presets" class="preset-grid"></div>
+        <form id="wallpaper-form" class="mt-1">
+          <label for="wallpaper-file">Ou importer une image</label>
           <input type="file" id="wallpaper-file" accept="image/*">
           <button type="submit" class="btn btn-primary">Appliquer</button>
         </form>
@@ -52,10 +53,25 @@
         <p id="password-msg" class="success-msg hidden"></p>
       </section>
 
-      <section class="panel panel-warning">
+      <section class="panel">
         <h2>Mode kiosk</h2>
-        <p>Désactiver le mode kiosk Firefox et accéder au bureau Peppermint pour une administration avancée.</p>
-        <button id="btn-disable-kiosk" class="btn btn-danger">Quitter le mode kiosk</button>
+        <p>Gérer l'affichage plein écran Firefox.</p>
+        <div class="btn-group">
+          <button id="btn-enable-kiosk" class="btn btn-primary">Activer le mode kiosk</button>
+          <button id="btn-disable-kiosk" class="btn btn-danger">Quitter le mode kiosk</button>
+        </div>
+        <p id="kiosk-msg" class="success-msg hidden"></p>
+      </section>
+
+      <section class="panel panel-full">
+        <h2>Journal des analyses</h2>
+        <p>Historique des scans (format : Date-Heure-N°Série.log). Une copie est aussi déposée sur la clé dans <code>STATION_BLANCHE/</code>.</p>
+        <div class="logs-layout">
+          <div id="logs-list" class="logs-list">
+            <p class="muted">Chargement...</p>
+          </div>
+          <pre id="log-content" class="log-viewer">Sélectionnez un log pour afficher son contenu.</pre>
+        </div>
       </section>
     </div>
   </main>

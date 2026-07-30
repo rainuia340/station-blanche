@@ -32,9 +32,23 @@ sudo reboot
 
 - **MAJ Station Blanche** — met à jour depuis GitHub (`install.sh --update`)
 - **MAJ Signatures ClamAV** — lance `freshclam`
-- **Fond d'écran** — import d'une image personnalisée
-- **Changer le mot de passe admin** — modifie les identifiants web
-- **Quitter le mode kiosk** — désactive Firefox kiosk et ouvre le bureau Peppermint
+- **Fond d'écran** — presets (bleu, vert, violet) ou import d'image
+- **Changer le mot de passe admin**
+- **Mode kiosk** — activer ou quitter le mode plein écran Firefox
+- **Journal des analyses** — consulter l'historique des scans
+
+### Logs de scan
+
+Chaque analyse génère un fichier log au format :
+
+```
+YYYYMMDD-HHMMSS-N°Série.log
+```
+
+Exemple : `20260730-143052-A1B2C3D4.log`
+
+- **Sur la station** : `/var/log/antivirscan/`
+- **Sur la clé USB** : copie dans le dossier `STATION_BLANCHE/` à la racine du média
 
 ## Mise à jour
 

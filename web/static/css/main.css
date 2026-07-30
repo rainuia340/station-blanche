@@ -29,6 +29,17 @@ body {
 }
 
 .container-narrow { max-width: 420px; }
+.container-wide { max-width: 1100px; }
+
+.mt-1 { margin-top: 1rem; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+
+code {
+  background: var(--bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
 
 .header { margin-bottom: 2.5rem; }
 .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -126,7 +137,72 @@ body {
 
 .panel h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
 .panel p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
-.panel-warning { border-color: var(--danger); }
+.panel-full { grid-column: 1 / -1; }
+
+.preset-grid {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.preset-btn {
+  padding: 0.5rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: border-color 0.15s;
+}
+
+.preset-btn:hover { border-color: var(--accent); }
+
+.logs-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.logs-list {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.log-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: monospace;
+}
+
+.log-item:hover { background: var(--surface); }
+.log-item.active { background: var(--accent); color: #0f172a; }
+
+.log-viewer {
+  background: #0a0f1a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: "Cascadia Code", "Fira Code", monospace;
+  font-size: 0.8rem;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--muted);
+}
 
 .form-panel label {
   display: block;
@@ -183,4 +259,5 @@ body {
 
 @media (max-width: 700px) {
   .home-nav, .admin-grid { grid-template-columns: 1fr; }
+  .logs-layout { grid-template-columns: 1fr; }
 }

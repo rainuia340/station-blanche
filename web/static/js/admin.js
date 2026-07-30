@@ -8,6 +8,13 @@ async function api(path, options = {}) {
   return data;
 }
 
+function showMsg(el, text, isError = false) {
+  el.textContent = text;
+  el.classList.remove("hidden");
+  el.style.color = isError ? "var(--danger)" : "";
+  if (!isError) el.classList.add("success-msg");
+}
+
 // --- Page de connexion ---
 const loginForm = document.getElementById("login-form");
 if (loginForm) {
@@ -74,6 +81,46 @@ if (btnUpdateSigs) {
   });
 }
 
+// --- Fonds d'écran presets ---
+const presetsContainer = document.getElementById("wallpaper-presets");
+if (presetsContainer) {
+  api("/api/admin/wallpaper/presets")
+    .then((presets) => {
+      if (!presets.length) {
+        presetsContainer.innerHTML = "<p class='muted'>Aucun preset disponible.</p>";
+        return;
+      }
+      presetsContainer.innerHTML = presets
+        .map(
+          (p) =>
+            `<button class="preset-btn" data-preset="${p.file}">${p.name}</button>`
+        )
+        .join("");
+
+      presetsContainer.querySelectorAll(".preset-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const msg = document.getElementById("wallpaper-msg");
+          const formData = new FormData();
+          formData.append("preset", btn.dataset.preset);
+          try {
+            const res = await fetch("/api/admin/wallpaper", {
+              method: "POST",
+              body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Erreur");
+            showMsg(msg, "Fond d'écran appliqué.");
+          } catch (err) {
+            showMsg(msg, err.message, true);
+          }
+        });
+      });
+    })
+    .catch(() => {
+      presetsContainer.innerHTML = "<p class='muted'>Impossible de charger les presets.</p>";
+    });
+}
+
 const wallpaperForm = document.getElementById("wallpaper-form");
 if (wallpaperForm) {
   wallpaperForm.addEventListener("submit", async (e) => {
@@ -87,13 +134,9 @@ if (wallpaperForm) {
       const res = await fetch("/api/admin/wallpaper", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur");
-      msg.textContent = "Fond d'écran appliqué.";
-      msg.classList.remove("hidden");
+      showMsg(msg, "Fond d'écran appliqué.");
     } catch (err) {
-      msg.textContent = err.message;
-      msg.classList.remove("hidden");
-      msg.classList.remove("success-msg");
-      msg.style.color = "var(--danger)";
+      showMsg(msg, err.message, true);
     }
   });
 }
@@ -106,8 +149,7 @@ if (passwordForm) {
     const newPass = document.getElementById("new-password").value;
     const confirm = document.getElementById("confirm-password").value;
     if (newPass !== confirm) {
-      msg.textContent = "Les mots de passe ne correspondent pas.";
-      msg.classList.remove("hidden");
+      showMsg(msg, "Les mots de passe ne correspondent pas.", true);
       return;
     }
     try {
@@ -118,12 +160,23 @@ if (passwordForm) {
           new_password: newPass,
         }),
       });
-      msg.textContent = "Mot de passe modifié avec succès.";
-      msg.classList.remove("hidden");
+      showMsg(msg, "Mot de passe modifié avec succès.");
       passwordForm.reset();
     } catch (err) {
-      msg.textContent = err.message;
-      msg.classList.remove("hidden");
+      showMsg(msg, err.message, true);
+    }
+  });
+}
+
+const btnEnableKiosk = document.getElementById("btn-enable-kiosk");
+if (btnEnableKiosk) {
+  btnEnableKiosk.addEventListener("click", async () => {
+    const msg = document.getElementById("kiosk-msg");
+    try {
+      const data = await api("/api/admin/enable-kiosk", { method: "POST" });
+      showMsg(msg, data.message);
+    } catch (err) {
+      showMsg(msg, err.message, true);
     }
   });
 }
@@ -132,11 +185,50 @@ const btnDisableKiosk = document.getElementById("btn-disable-kiosk");
 if (btnDisableKiosk) {
   btnDisableKiosk.addEventListener("click", async () => {
     if (!confirm("Quitter le mode kiosk et accéder au bureau ?")) return;
+    const msg = document.getElementById("kiosk-msg");
     try {
       const data = await api("/api/admin/disable-kiosk", { method: "POST" });
-      alert(data.message);
+      showMsg(msg, data.message);
     } catch (err) {
-      alert(err.message);
+      showMsg(msg, err.message, true);
     }
   });
 }
+
+// --- Journal des analyses ---
+const logsList = document.getElementById("logs-list");
+const logContent = document.getElementById("log-content");
+
+async function loadLogs() {
+  if (!logsList) return;
+  try {
+    const logs = await api("/api/admin/logs");
+    if (!logs.length) {
+      logsList.innerHTML = "<p class='muted' style='padding:0.75rem'>Aucun log disponible.</p>";
+      return;
+    }
+    logsList.innerHTML = logs
+      .map(
+        (l) =>
+          `<button class="log-item" data-file="${l.filename}">${l.filename}</button>`
+      )
+      .join("");
+
+    logsList.querySelectorAll(".log-item").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        logsList.querySelectorAll(".log-item").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        try {
+          const data = await api(`/api/admin/logs/${encodeURIComponent(btn.dataset.file)}`);
+          logContent.textContent = data.content;
+        } catch (err) {
+          logContent.textContent = err.message;
+        }
+      });
+    });
+  } catch (err) {
+    logsList.innerHTML = `<p class='muted' style='padding:0.75rem'>${err.message}</p>`;
+  }
+}
+
+if (logsList) loadLogs();
