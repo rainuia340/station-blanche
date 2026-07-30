@@ -144,17 +144,26 @@ def configure_ipv4(
         proc = _run(["device", "disconnect", device])
         return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
 
-    args = ["connection", "modify", connection, "ipv4.method", method]
-    if method == "manual":
+    if method == "auto":
+        args = [
+            "connection", "modify", connection,
+            "ipv4.method", "auto",
+            "ipv4.addresses", "",
+            "ipv4.gateway", "",
+            "ipv4.dns", "",
+        ]
+    else:
         if not address:
             raise ValueError("Adresse IP requise en mode fixe")
-        args.extend(["ipv4.addresses", f"{address}/{prefix}"])
+        args = [
+            "connection", "modify", connection,
+            "ipv4.method", "manual",
+            "ipv4.addresses", f"{address}/{prefix}",
+        ]
         if gateway:
             args.extend(["ipv4.gateway", gateway])
         if dns:
             args.extend(["ipv4.dns", dns.replace(",", " ")])
-    else:
-        args.extend(["ipv4.method", "auto"])
 
     mod = _run(args)
     if mod.returncode != 0:
