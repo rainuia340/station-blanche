@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Station Blanche Kiosk
+Comment=Lance Firefox en mode kiosk
+Exec=/opt/station-blanche/scripts/start-kiosk.sh
+X-GNOME-Autostart-enabled=true

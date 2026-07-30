@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Station Blanche</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="page-admin">
+  <main class="container">
+    <header class="header header-row">
+      <div>
+        <a href="/" class="back-link">← Accueil</a>
+        <h1>Administration</h1>
+      </div>
+      <button id="btn-logout" class="btn btn-secondary">Déconnexion</button>
+    </header>
+
+    <div class="admin-grid">
+      <section class="panel">
+        <h2>Mises à jour</h2>
+        <p>Mettre à jour la station depuis GitHub ou les signatures antivirus.</p>
+        <div class="btn-group">
+          <button id="btn-update-station" class="btn btn-primary">MAJ Station Blanche</button>
+          <button id="btn-update-sigs" class="btn btn-primary">MAJ Signatures ClamAV</button>
+        </div>
+        <pre id="update-output" class="output-box hidden"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Fond d'écran</h2>
+        <p>Changer le fond d'écran du bureau.</p>
+        <form id="wallpaper-form">
+          <label for="wallpaper-file">Importer une image</label>
+          <input type="file" id="wallpaper-file" accept="image/*">
+          <button type="submit" class="btn btn-primary">Appliquer</button>
+        </form>
+        <p id="wallpaper-msg" class="success-msg hidden"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Mot de passe administrateur</h2>
+        <form id="password-form">
+          <label for="current-password">Mot de passe actuel</label>
+          <input type="password" id="current-password" required>
+          <label for="new-password">Nouveau mot de passe</label>
+          <input type="password" id="new-password" required minlength="6">
+          <label for="confirm-password">Confirmer</label>
+          <input type="password" id="confirm-password" required minlength="6">
+          <button type="submit" class="btn btn-primary">Changer le mot de passe</button>
+        </form>
+        <p id="password-msg" class="success-msg hidden"></p>
+      </section>
+
+      <section class="panel panel-warning">
+        <h2>Mode kiosk</h2>
+        <p>Désactiver le mode kiosk Firefox et accéder au bureau Peppermint pour une administration avancée.</p>
+        <button id="btn-disable-kiosk" class="btn btn-danger">Quitter le mode kiosk</button>
+      </section>
+    </div>
+  </main>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>
