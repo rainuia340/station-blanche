@@ -100,6 +100,33 @@ code {
 .status-icon { font-size: 4rem; margin-bottom: 1rem; }
 .status-message { font-size: 1.3rem; font-weight: 500; }
 
+.scanners-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.current-scanner {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.scanners-status {
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.scanner-ok { color: var(--success); }
+.scanner-off { color: var(--muted); }
 .status-waiting { background: #1e293b; }
 .status-scanning { background: #172554; border-color: var(--accent); }
 .status-clean { background: #14532d; border-color: var(--success); }

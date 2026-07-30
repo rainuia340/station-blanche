@@ -110,7 +110,7 @@ run_install_scripts() {
     local scripts=(
         "scripts/configure-users.sh"
         "scripts/configure-web.sh"
-        "scripts/configure-clamav.sh"
+        "scripts/configure-scanners.sh"
         "scripts/configure-autostart.sh"
         "scripts/apply-wallpaper.sh"
     )

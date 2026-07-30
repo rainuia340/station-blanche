@@ -1,21 +1,21 @@
-"""Moteur de détection USB et scan ClamAV."""
+"""Moteur de détection USB et scan multi-antivirus."""
 
 import datetime
 import os
 import re
 import shutil
-import subprocess
 import threading
 import time
 
 import psutil
 import pyudev
 
+from scanners import ALL_SCANNERS
+
 LOG_DIR = "/var/log/antivirscan"
 QUARANTINE_DIR = "/var/lib/antivirscan/quarantine"
 USB_REPORT_DIR = "STATION_BLANCHE"
 
-STATE_IDLE = "idle"
 STATE_WAITING_USB = "waiting_usb"
 STATE_SCANNING = "scanning"
 STATE_INFECTED = "infected"
@@ -26,7 +26,7 @@ STATE_WAITING_EJECT = "waiting_eject"
 
 RESULT_LABELS = {
     0: "SAIN — Aucune infection détectée",
-    1: "INFECTE — Fichiers mis en quarantaine",
+    1: "INFECTE — Menace(s) détectée(s)",
     2: "ERREUR — Analyse incomplète",
 }
 
@@ -43,6 +43,7 @@ class ScanEngine:
         self._message = "Insérez une clé USB pour commencer l'analyse."
         self._log_lines: list[str] = []
         self._current_log = ""
+        self._current_scanner = ""
         self._thread: threading.Thread | None = None
         self._running = False
 
@@ -63,14 +64,23 @@ class ScanEngine:
             return {
                 "state": self._state,
                 "message": self._message,
-                "log": self._log_lines[-80:],
+                "log": self._log_lines[-120:],
                 "log_file": self._current_log,
+                "current_scanner": self._current_scanner,
             }
 
-    def _set(self, state: str, message: str, log_line: str | None = None):
+    def _set(
+        self,
+        state: str,
+        message: str,
+        log_line: str | None = None,
+        scanner: str | None = None,
+    ):
         with self._lock:
             self._state = state
             self._message = message
+            if scanner is not None:
+                self._current_scanner = scanner
             if log_line:
                 self._log_lines.append(log_line)
 
@@ -99,7 +109,6 @@ class ScanEngine:
 
     @staticmethod
     def _mounted_usb_partitions() -> tuple[list[str], str]:
-        """Retourne (points de montage, numéro de série)."""
         parts = []
         serial = "INCONNU"
         context = pyudev.Context()
@@ -124,26 +133,36 @@ class ScanEngine:
     @staticmethod
     def _build_log_filename(serial: str) -> tuple[str, str]:
         now = datetime.datetime.now()
-        date_part = now.strftime("%Y%m%d")
-        time_part = now.strftime("%H%M%S")
-        filename = f"{date_part}-{time_part}-{serial}.log"
+        filename = f"{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}-{serial}.log"
         return filename, now.strftime("%d/%m/%Y %H:%M:%S")
 
     @staticmethod
     def _build_report_header(
-        timestamp: str, serial: str, mount_points: list[str], result: int
+        timestamp: str,
+        serial: str,
+        mount_points: list[str],
+        scanner_results: list,
+        overall: int,
     ) -> str:
         lines = [
             "=" * 60,
-            "  STATION BLANCHE — Rapport d'analyse antivirus",
+            "  STATION BLANCHE — Rapport d'analyse multi-antivirus",
             "=" * 60,
             f"Date et heure    : {timestamp}",
             f"N° série clé USB : {serial}",
             f"Partitions       : {', '.join(mount_points)}",
-            f"Résultat         : {RESULT_LABELS.get(result, 'INCONNU')}",
+            f"Moteurs actifs   : {len([r for r in scanner_results if not r.skipped])}",
+            "",
+            "Résultats par moteur :",
+        ]
+        for r in scanner_results:
+            lines.append(f"  - {r.display_name:<30} {r.status_label}")
+        lines.extend([
+            "",
+            f"Résultat global  : {RESULT_LABELS.get(overall, 'INCONNU')}",
             "=" * 60,
             "",
-        ]
+        ])
         return "\n".join(lines)
 
     @staticmethod
@@ -198,34 +217,64 @@ class ScanEngine:
             self._log_lines = [
                 f"Clé USB détectée — N° série : {serial}",
                 f"Fichier log : {filename}",
+                "",
             ]
 
-        self._set(
-            STATE_SCANNING,
-            f"Analyse en cours (série : {serial})...",
-            f"Début analyse : {', '.join(parts)}",
-        )
+        scanner_results = []
+        full_output = ""
+        any_infected = False
+        any_success = False
+        all_failed = True
 
-        output = ""
-        pl = " ".join(f'"{p}"' for p in parts)
-        cmd = f"/usr/bin/clamscan -r --move={QUARANTINE_DIR} --bell {pl}"
-        try:
-            proc = subprocess.Popen(
-                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        for scanner in ALL_SCANNERS:
+            if not scanner.is_available():
+                result = scanner.scan(parts)  # retourne skipped
+                scanner_results.append(result)
+                self._set(
+                    STATE_SCANNING,
+                    f"Analyse en cours (série : {serial})...",
+                    f"[{scanner.display_name}] ignoré — non installé",
+                    scanner=scanner.display_name,
+                )
+                continue
+
+            self._set(
+                STATE_SCANNING,
+                f"{scanner.display_name} en cours (série : {serial})...",
+                f"--- {scanner.display_name} ---",
+                scanner=scanner.display_name,
             )
-            for line in proc.stdout:
-                output += line
-                self._set(STATE_SCANNING, f"Analyse en cours (série : {serial})...", line.rstrip())
-            result = proc.wait()
-        except Exception as exc:
-            self._set(STATE_ERROR, f"Erreur pendant l'analyse : {exc}")
-            return
 
-        if "LibClamAV Error" in output:
-            result = 2
+            result = scanner.scan(parts)
+            scanner_results.append(result)
+            full_output += f"\n{'=' * 40}\n{scanner.display_name}\n{'=' * 40}\n{result.output}\n"
 
-        report = self._build_report_header(timestamp, serial, parts, result)
-        full_content = report + output
+            for line in result.output.splitlines()[-20:]:
+                if line.strip():
+                    self._set(
+                        STATE_SCANNING,
+                        f"{scanner.display_name} en cours...",
+                        line.rstrip(),
+                        scanner=scanner.display_name,
+                    )
+
+            if not result.skipped and not result.error:
+                any_success = True
+                all_failed = False
+            if result.infected:
+                any_infected = True
+            if not result.skipped:
+                all_failed = all_failed and result.error
+
+        if any_infected:
+            overall = 1
+        elif all_failed or not any_success:
+            overall = 2
+        else:
+            overall = 0
+
+        report = self._build_report_header(timestamp, serial, parts, scanner_results, overall)
+        full_content = report + full_output
 
         with open(log_path, "w", encoding="utf-8") as f:
             f.write(full_content)
@@ -234,20 +283,20 @@ class ScanEngine:
         if copied:
             self._set(
                 STATE_SCANNING,
-                f"Analyse en cours (série : {serial})...",
+                "Finalisation...",
                 f"Rapport copié sur la clé : {USB_REPORT_DIR}/{filename}",
             )
 
-        if result == 1:
+        if overall == 1:
             self._set(
                 STATE_INFECTED,
-                "Infection détectée ! Fichiers mis en quarantaine. Réinsérez la clé pour valider la désinfection.",
+                "Infection détectée par au moins un moteur ! Réinsérez la clé pour valider la désinfection.",
                 f"Log : {filename}",
             )
-        elif result == 0:
+        elif overall == 0:
             self._set(
                 STATE_CLEAN,
-                "Aucune infection détectée. Cette clé est saine.",
+                "Aucune infection détectée par les moteurs actifs. Cette clé est saine.",
                 f"Log : {filename}",
             )
         else:
@@ -257,4 +306,4 @@ class ScanEngine:
                 f"Log : {filename}",
             )
 
-        self._set(STATE_WAITING_EJECT, "Veuillez retirer la clé USB.")
+        self._set(STATE_WAITING_EJECT, "Veuillez retirer la clé USB.", scanner="")

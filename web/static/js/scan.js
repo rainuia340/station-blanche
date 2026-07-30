@@ -24,6 +24,8 @@ const panel = document.getElementById("status-panel");
 const icon = document.getElementById("status-icon");
 const message = document.getElementById("status-message");
 const logEl = document.getElementById("scan-log");
+const scannersList = document.getElementById("scanners-list");
+const currentScanner = document.getElementById("current-scanner");
 
 async function poll() {
   try {
@@ -33,6 +35,18 @@ async function poll() {
     icon.textContent = ICONS[data.state] || "⏳";
     message.textContent = data.message;
     panel.className = "status-panel " + (CLASSES[data.state] || "status-waiting");
+
+    if (data.scanners && scannersList) {
+      scannersList.textContent = "Moteurs : " + data.scanners
+        .map((s) => s.display_name + (s.available ? " ✓" : " ✗"))
+        .join(" | ");
+    }
+
+    if (currentScanner) {
+      currentScanner.textContent = data.current_scanner
+        ? `En cours : ${data.current_scanner}`
+        : "";
+    }
 
     if (data.log && data.log.length) {
       logEl.textContent = data.log.join("\n");

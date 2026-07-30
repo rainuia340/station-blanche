@@ -25,6 +25,7 @@ from config_manager import (
     verify_admin,
 )
 from scan_engine import ScanEngine
+from scanners import ALL_SCANNERS, scanners_status
 
 LOG_DIR = "/var/log/antivirscan"
 APP_DIR = Path(__file__).resolve().parent
@@ -35,6 +36,8 @@ PRESETS_DIR = APP_DIR / "static" / "img" / "presets"
 ensure_config()
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = get_secret_key()
+
+from scan_engine import ScanEngine
 
 scan_engine = ScanEngine()
 
@@ -70,7 +73,14 @@ def admin_page():
 
 @app.route("/api/scan/status")
 def api_scan_status():
-    return jsonify(scan_engine.status())
+    data = scan_engine.status()
+    data["scanners"] = scanners_status()
+    return jsonify(data)
+
+
+@app.route("/api/scanners/status")
+def api_scanners_status():
+    return jsonify(scanners_status())
 
 
 @app.route("/api/admin/login", methods=["POST"])
@@ -112,16 +122,28 @@ def api_update_station():
 @app.route("/api/admin/update-signatures", methods=["POST"])
 @admin_required
 def api_update_signatures():
-    proc = subprocess.run(
-        ["freshclam"],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    return jsonify({
-        "ok": proc.returncode == 0,
-        "output": proc.stdout + proc.stderr,
-    })
+    script = f"{INSTALL_DIR}/scripts/update-signatures.sh"
+    if os.path.isfile(script):
+        proc = subprocess.run(
+            ["bash", script],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        output = proc.stdout + proc.stderr
+        ok = proc.returncode == 0
+    else:
+        output_parts = []
+        ok = True
+        for scanner in ALL_SCANNERS:
+            if scanner.is_available():
+                success, msg = scanner.update_signatures()
+                output_parts.append(f"--- {scanner.display_name} ---\n{msg}")
+                if not success:
+                    ok = False
+        output = "\n".join(output_parts) or "Aucun moteur disponible."
+
+    return jsonify({"ok": ok, "output": output})
 
 
 @app.route("/api/admin/change-password", methods=["POST"])

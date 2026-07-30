@@ -38,6 +38,18 @@ sudo reboot
 - **Journal des analyses** — consulter l'historique des scans
 - **Désinstallation** — supprime Station Blanche et restaure Peppermint normal (redémarrage auto)
 
+### Moteurs antivirus (3 gratuits)
+
+| Moteur | Description |
+|--------|-------------|
+| **ClamAV** | Antivirus open source (référence Linux) |
+| **Linux Malware Detect (LMD)** | Signatures complémentaires, quarantaine auto |
+| **F-Prot** | Antivirus gratuit usage personnel |
+
+> **Note** : NOD32 (ESET) et Avast ne proposent pas de scanner en ligne de commande gratuit pour Linux. Les trois moteurs ci-dessus sont installés automatiquement lors de l'installation (réseau requis pour maldet et F-Prot).
+
+Chaque scan exécute **les 3 moteurs en séquence**. Le rapport indique le résultat par moteur et un verdict global.
+
 ### Logs de scan
 
 Chaque analyse génère un fichier log au format :
@@ -83,7 +95,8 @@ station-blanche/
 │   ├── configure-web.sh           # Service systemd
 │   ├── configure-autostart.sh     # Auto-login + kiosk Firefox
 │   ├── configure-users.sh         # Utilisateur station
-│   ├── configure-clamav.sh        # Antivirus
+│   ├── configure-scanners.sh      # ClamAV + LMD + F-Prot
+│   ├── update-signatures.sh       # MAJ signatures tous moteurs
 │   ├── configure-hardening.sh     # Durcissement ANSSI
 │   ├── start-kiosk.sh             # Lance Firefox kiosk
 │   ├── apply-wallpaper.sh         # Fond d'écran XFCE

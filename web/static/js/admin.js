@@ -47,6 +47,25 @@ if (btnLogout) {
   });
 }
 
+// --- Statut des moteurs antivirus ---
+const scannersStatus = document.getElementById("scanners-status");
+if (scannersStatus) {
+  fetch("/api/scanners/status")
+    .then((r) => r.json())
+    .then((scanners) => {
+      scannersStatus.innerHTML = scanners
+        .map(
+          (s) =>
+            `<span class="${s.available ? "scanner-ok" : "scanner-off"}">` +
+            `${s.available ? "✓" : "✗"} ${s.display_name}</span>`
+        )
+        .join("<br>");
+    })
+    .catch(() => {
+      scannersStatus.textContent = "Impossible de charger les moteurs.";
+    });
+}
+
 const btnUpdateStation = document.getElementById("btn-update-station");
 if (btnUpdateStation) {
   btnUpdateStation.addEventListener("click", async () => {

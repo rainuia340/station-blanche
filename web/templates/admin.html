@@ -19,10 +19,11 @@
     <div class="admin-grid">
       <section class="panel">
         <h2>Mises à jour</h2>
-        <p>Mettre à jour la station depuis GitHub ou les signatures antivirus.</p>
+        <p>Mettre à jour la station ou les signatures des 3 moteurs antivirus (ClamAV, LMD, F-Prot).</p>
+        <div id="scanners-status" class="scanners-status muted">Chargement des moteurs...</div>
         <div class="btn-group">
           <button id="btn-update-station" class="btn btn-primary">MAJ Station Blanche</button>
-          <button id="btn-update-sigs" class="btn btn-primary">MAJ Signatures ClamAV</button>
+          <button id="btn-update-sigs" class="btn btn-primary">MAJ Signatures (tous moteurs)</button>
         </div>
         <pre id="update-output" class="output-box hidden"></pre>
       </section>
