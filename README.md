@@ -10,6 +10,23 @@ Poste isolé dédié à l'analyse antivirus des médias amovibles, avec **interf
 
 ## Installation
 
+### Lien court (recommandé)
+
+```bash
+curl -fsSL https://rainuia340.github.io/station-blanche/i | sudo bash
+```
+
+> Activer GitHub Pages : *Settings → Pages → Branch `main` → dossier `/docs`*
+
+Autres raccourcis :
+
+| Lien | Commande |
+|------|----------|
+| GitHub Pages | `curl -fsSL https://rainuia340.github.io/station-blanche/i \| sudo bash` |
+| TinyURL | `curl -fsSL https://tinyurl.com/2ba278lg \| sudo bash` |
+
+### Lien complet
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rainuia340/station-blanche/main/install.sh | sudo bash
 ```
