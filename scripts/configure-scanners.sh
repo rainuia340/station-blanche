@@ -12,8 +12,15 @@ systemctl stop clamav-daemon 2>/dev/null || true
 systemctl disable clamav-daemon 2>/dev/null || true
 systemctl enable clamav-freshclam 2>/dev/null || true
 
-if ping -c1 -W3 8.8.8.8 &>/dev/null; then
-    freshclam 2>/dev/null || echo "[scanners] freshclam indisponible (réseau ou miroir)."
+CLAMAV_UPDATE_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/clamav-update.sh"
+if [[ -x "$CLAMAV_UPDATE_SCRIPT" ]]; then
+    bash "$CLAMAV_UPDATE_SCRIPT" || echo "[scanners] Mise à jour ClamAV échouée (réseau requis pour les signatures)."
+elif command -v freshclam &>/dev/null; then
+    systemctl stop clamav-freshclam 2>/dev/null || true
+    freshclam --stdout 2>&1 || echo "[scanners] freshclam indisponible (réseau ou miroir)."
+    systemctl start clamav-freshclam 2>/dev/null || true
+else
+    echo "[scanners] freshclam introuvable — paquet clamav-freshclam manquant."
 fi
 
 # --- Linux Malware Detect (LMD / maldet) ---
