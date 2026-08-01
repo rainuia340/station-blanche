@@ -30,9 +30,60 @@ const progressLabel = document.getElementById("progress-label");
 const progressPercent = document.getElementById("progress-percent");
 const progressFill = document.getElementById("progress-fill");
 const btnCancelScan = document.getElementById("btn-cancel-scan");
+const scanAnimation = document.getElementById("scan-animation");
+const scanTip = document.getElementById("scan-tip");
+
+const SCAN_TIPS = [
+  "Les virus n'ont aucune chance ici.",
+  "Inspection méticuleuse de chaque fichier...",
+  "On vérifie les recoins les plus sombres du disque.",
+  "Patience — la sécurité ne se précipite pas.",
+  "Recherche de menaces cachées en cours...",
+  "Trois moteurs, une seule mission : vous protéger.",
+  "Aucun octet suspect n'échappera à l'analyse.",
+  "Presque comme un détective, mais pour les malwares.",
+  "Le café est prêt, l'analyse aussi bientôt.",
+  "Fouille en profondeur : c'est notre spécialité.",
+];
 
 let isScanning = false;
 let cancelRequested = false;
+let tipIndex = 0;
+let tipTimer = null;
+
+function setScanAnimation(active) {
+  if (scanAnimation) scanAnimation.classList.toggle("hidden", !active);
+  if (icon) icon.classList.toggle("is-scanning", active);
+  if (scanTip) scanTip.classList.toggle("hidden", !active);
+  if (active) {
+    startTipRotation();
+  } else {
+    stopTipRotation();
+  }
+}
+
+function startTipRotation() {
+  if (!scanTip) return;
+  tipIndex = Math.floor(Math.random() * SCAN_TIPS.length);
+  scanTip.textContent = SCAN_TIPS[tipIndex];
+  stopTipRotation();
+  tipTimer = setInterval(() => {
+    tipIndex = (tipIndex + 1) % SCAN_TIPS.length;
+    scanTip.classList.add("scan-tip-fade");
+    setTimeout(() => {
+      scanTip.textContent = SCAN_TIPS[tipIndex];
+      scanTip.classList.remove("scan-tip-fade");
+    }, 250);
+  }, 4000);
+}
+
+function stopTipRotation() {
+  if (tipTimer) {
+    clearInterval(tipTimer);
+    tipTimer = null;
+  }
+  if (scanTip) scanTip.textContent = "";
+}
 
 function updateProgress(progress, label) {
   if (!progressContainer) return;
@@ -111,6 +162,7 @@ async function startScan(device) {
     if (!res.ok) throw new Error(data.error || "Erreur");
     isScanning = true;
     cancelRequested = false;
+    setScanAnimation(true);
     if (btnCancelScan) {
       btnCancelScan.disabled = false;
       btnCancelScan.textContent = "Annuler l'analyse";
@@ -160,8 +212,10 @@ async function poll() {
 
     if (isScanning) {
       updateProgress(data.progress, data.progress_label || "Analyse en cours...");
+      setScanAnimation(true);
     } else if (progressContainer) {
       progressContainer.classList.add("hidden");
+      setScanAnimation(false);
       cancelRequested = false;
       if (btnCancelScan) {
         btnCancelScan.disabled = false;
