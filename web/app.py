@@ -86,6 +86,36 @@ def api_scan_status():
     return jsonify(data)
 
 
+@app.route("/api/scan/media")
+def api_scan_media():
+    try:
+        media = scan_engine.refresh_media()
+        return jsonify({"media": media})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/scan/refresh", methods=["POST"])
+def api_scan_refresh():
+    try:
+        media = scan_engine.refresh_media()
+        return jsonify({"ok": True, "media": media, "count": len(media)})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/scan/start", methods=["POST"])
+def api_scan_start():
+    data = request.get_json(silent=True) or {}
+    device = data.get("device", "")
+    if not device:
+        return jsonify({"error": "Périphérique non spécifié"}), 400
+    ok, msg = scan_engine.start_scan(device)
+    if not ok:
+        return jsonify({"error": msg}), 409
+    return jsonify({"ok": True, "message": msg})
+
+
 @app.route("/api/scanners/status")
 def api_scanners_status():
     return jsonify(scanners_status())

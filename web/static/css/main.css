@@ -378,6 +378,79 @@ code {
   color: var(--text);
 }
 
+/* --- Médias scan --- */
+.media-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.media-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.media-panel h2 { font-size: 1.1rem; }
+
+.media-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.media-empty { padding: 1rem 0; }
+
+.media-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.media-card-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.media-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.media-tag {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.media-tag-ok { color: var(--success); border-color: var(--success); }
+.media-tag-warn { color: var(--warning); border-color: var(--warning); }
+
+.media-card-serial {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.btn-scan-media { white-space: nowrap; min-width: 100px; }
+
 .form-panel label {
   display: block;
   margin-bottom: 0.25rem;
