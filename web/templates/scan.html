@@ -31,8 +31,28 @@
     </section>
 
     <section id="status-panel" class="status-panel status-waiting">
-      <div id="status-icon" class="status-icon">⏳</div>
+      <div class="status-icon-wrap">
+        <div id="scan-animation" class="scan-animation hidden" aria-hidden="true">
+          <span class="scan-ring"></span>
+          <span class="scan-ring scan-ring-delay"></span>
+          <span class="scan-sweep"></span>
+          <span class="scan-orbit-dot"></span>
+          <span class="scan-orbit-dot scan-orbit-dot-2"></span>
+        </div>
+        <div id="status-icon" class="status-icon">⏳</div>
+      </div>
       <p id="status-message" class="status-message">Sélectionnez un média à analyser.</p>
+      <p id="scan-tip" class="scan-tip hidden"></p>
+      <div id="progress-container" class="progress-container hidden">
+        <div class="progress-header">
+          <span id="progress-label" class="progress-label">Analyse en cours...</span>
+          <span id="progress-percent" class="progress-percent">0 %</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <button id="btn-cancel-scan" type="button" class="btn btn-danger btn-cancel-scan">Annuler l'analyse</button>
+      </div>
     </section>
 
     <section class="log-panel">
