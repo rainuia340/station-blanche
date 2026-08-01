@@ -16,7 +16,9 @@ Poste isolé dédié à l'analyse antivirus des médias amovibles, avec **interf
 curl -fsSL https://rainuia340.github.io/station-blanche/i | sudo bash
 ```
 
-Autres raccourcis :
+> **Activation GitHub Pages** (une fois) : [Settings → Pages → Source : GitHub Actions](https://github.com/rainuia340/station-blanche/settings/pages), puis relancer le workflow *Deploy GitHub Pages* dans l'onglet Actions.
+
+**Disponible immédiatement** (sans config Pages) :
 
 | Lien | Commande |
 |------|----------|
