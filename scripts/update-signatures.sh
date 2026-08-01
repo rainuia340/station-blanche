@@ -2,11 +2,20 @@
 # Met à jour les signatures de tous les moteurs antivirus installés
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "=== Mise à jour des signatures antivirus ==="
 
-if command -v freshclam &>/dev/null; then
+if [[ -x "$SCRIPT_DIR/clamav-update.sh" ]]; then
+    bash "$SCRIPT_DIR/clamav-update.sh" || echo "Échec mise à jour ClamAV"
+elif command -v freshclam &>/dev/null; then
     echo "--- ClamAV (freshclam) ---"
-    freshclam 2>&1 || echo "Échec freshclam"
+    systemctl stop clamav-freshclam 2>/dev/null || true
+    freshclam --stdout 2>&1 || echo "Échec freshclam"
+    systemctl start clamav-freshclam 2>/dev/null || true
+else
+    echo "--- ClamAV ---"
+    echo "freshclam introuvable (installez clamav-freshclam)"
 fi
 
 if [[ -f /usr/local/sbin/maldet ]]; then

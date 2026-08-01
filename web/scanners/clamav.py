@@ -1,10 +1,12 @@
 """Scanner ClamAV."""
 
 import os
+import subprocess
 
 from scanners.base import BaseScanner, ScannerResult, run_subprocess
 
 QUARANTINE_DIR = "/var/lib/antivirscan/quarantine"
+CLAMAV_UPDATE_SCRIPT = "/opt/station-blanche/scripts/clamav-update.sh"
 
 
 class ClamAVScanner(BaseScanner):
@@ -46,8 +48,45 @@ class ClamAVScanner(BaseScanner):
             )
 
     def update_signatures(self) -> tuple[bool, str]:
+        if os.path.isfile(CLAMAV_UPDATE_SCRIPT):
+            try:
+                proc = subprocess.run(
+                    ["bash", CLAMAV_UPDATE_SCRIPT],
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                )
+                output = proc.stdout + proc.stderr
+                return proc.returncode == 0, output
+            except Exception as exc:
+                return False, str(exc)
+
+        freshclam = "/usr/bin/freshclam"
+        if not os.path.isfile(freshclam):
+            return False, "freshclam introuvable — installez le paquet clamav-freshclam"
+
         try:
-            code, stdout, stderr, _ = run_subprocess(["freshclam"])
-            return code == 0, stdout + stderr
+            subprocess.run(
+                ["systemctl", "stop", "clamav-freshclam"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            code, stdout, stderr, _ = run_subprocess([freshclam, "--stdout"])
+            subprocess.run(
+                ["systemctl", "start", "clamav-freshclam"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            output = stdout + stderr
+            if code == 0:
+                return True, output
+            if code == 1 and (
+                os.path.isfile("/var/lib/clamav/main.cvd")
+                or os.path.isfile("/var/lib/clamav/main.cld")
+            ):
+                return True, output + "\nSignatures déjà à jour."
+            return False, output
         except Exception as exc:
             return False, str(exc)
