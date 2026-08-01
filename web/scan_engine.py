@@ -17,12 +17,17 @@ STATE_SCANNING = "scanning"
 STATE_INFECTED = "infected"
 STATE_CLEAN = "clean"
 STATE_ERROR = "error"
+STATE_CANCELLED = "cancelled"
 
 RESULT_LABELS = {
     0: "SAIN — Aucune infection détectée",
     1: "INFECTE — Menace(s) détectée(s)",
     2: "ERREUR — Analyse incomplète",
+    3: "ANNULE — Analyse interrompue par l'utilisateur",
 }
+
+PROGRESS_MOUNT = 10
+PROGRESS_FINALIZE = 95
 
 
 class ScanEngine:
@@ -35,6 +40,10 @@ class ScanEngine:
         self._current_scanner = ""
         self._media_list: list[dict] = []
         self._scan_thread: threading.Thread | None = None
+        self._progress = 0
+        self._progress_label = ""
+        self._cancel_requested = False
+        self._current_proc = None
 
     def start(self):
         os.makedirs(LOG_DIR, exist_ok=True)
@@ -65,9 +74,19 @@ class ScanEngine:
                 "current_scanner": self._current_scanner,
                 "media": self._media_list,
                 "scanning": self._state == STATE_SCANNING,
+                "progress": self._progress,
+                "progress_label": self._progress_label,
             }
 
-    def _set(self, state: str, message: str, log_line: str | None = None, scanner: str | None = None):
+    def _set(
+        self,
+        state: str,
+        message: str,
+        log_line: str | None = None,
+        scanner: str | None = None,
+        progress: int | None = None,
+        progress_label: str | None = None,
+    ):
         with self._lock:
             self._state = state
             self._message = message
@@ -75,6 +94,35 @@ class ScanEngine:
                 self._current_scanner = scanner
             if log_line:
                 self._log_lines.append(log_line)
+            if progress is not None:
+                self._progress = max(0, min(100, progress))
+            if progress_label is not None:
+                self._progress_label = progress_label
+
+    def _is_cancelled(self) -> bool:
+        with self._lock:
+            return self._cancel_requested
+
+    def _register_proc(self, proc):
+        with self._lock:
+            self._current_proc = proc
+
+    def cancel_scan(self) -> tuple[bool, str]:
+        with self._lock:
+            if self._state != STATE_SCANNING:
+                return False, "Aucune analyse en cours."
+            self._cancel_requested = True
+            proc = self._current_proc
+        if proc is not None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=5)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        return True, "Annulation en cours..."
 
     def start_scan(self, device: str) -> tuple[bool, str]:
         with self._lock:
@@ -84,6 +132,11 @@ class ScanEngine:
         media = next((m for m in self._media_list if m["device"] == device), None)
         if not media:
             return False, "Média introuvable. Actualisez la liste."
+
+        with self._lock:
+            self._cancel_requested = False
+            self._progress = 0
+            self._progress_label = "Préparation..."
 
         self._scan_thread = threading.Thread(
             target=self._run_scan, args=(media,), daemon=True
@@ -137,13 +190,19 @@ class ScanEngine:
         except OSError:
             return False
 
+    def _scanner_progress(self, index: int, total: int) -> int:
+        if total <= 0:
+            return PROGRESS_MOUNT
+        span = PROGRESS_FINALIZE - PROGRESS_MOUNT
+        return PROGRESS_MOUNT + int(span * (index + 1) / total)
+
     def _run_scan(self, media: dict):
         device = media["device"]
-        serial = media["serial"]
         mount_point = None
         temp_mount = False
+        scanner_count = len(ALL_SCANNERS)
 
-        filename, timestamp = self._build_log_filename(serial, media["id"])
+        filename, timestamp = self._build_log_filename(media["serial"], media["id"])
         log_path = os.path.join(LOG_DIR, filename)
 
         with self._lock:
@@ -155,20 +214,43 @@ class ScanEngine:
                 "",
             ]
 
-        self._set(STATE_SCANNING, f"Montage de {media['label']}...")
+        self._set(
+            STATE_SCANNING,
+            f"Montage de {media['label']}...",
+            progress=2,
+            progress_label="Montage du média",
+        )
+
+        if self._is_cancelled():
+            self._finish_cancelled(temp_mount, mount_point)
+            return
 
         try:
             if media["mounted"] and media["mountpoint"]:
                 mount_point = media["mountpoint"]
-                self._set(STATE_SCANNING, f"Utilisation du montage existant : {mount_point}")
+                self._set(
+                    STATE_SCANNING,
+                    f"Utilisation du montage existant : {mount_point}",
+                    progress=PROGRESS_MOUNT,
+                    progress_label="Média prêt",
+                )
             else:
                 self._set(STATE_SCANNING, f"Montage de {device} en lecture seule...")
                 mount_point = mount_readonly(device)
                 temp_mount = True
-                self._set(STATE_SCANNING, f"Monté sur {mount_point}", f"Montage réussi : {mount_point}")
-
+                self._set(
+                    STATE_SCANNING,
+                    f"Monté sur {mount_point}",
+                    f"Montage réussi : {mount_point}",
+                    progress=PROGRESS_MOUNT,
+                    progress_label="Média monté",
+                )
         except Exception as exc:
-            self._set(STATE_ERROR, f"Erreur de montage : {exc}", str(exc))
+            self._set(STATE_ERROR, f"Erreur de montage : {exc}", str(exc), progress=0, progress_label="")
+            return
+
+        if self._is_cancelled():
+            self._finish_cancelled(temp_mount, mount_point)
             return
 
         parts = [mount_point]
@@ -177,8 +259,16 @@ class ScanEngine:
         any_infected = False
         any_success = False
         all_failed = True
+        cancelled = False
 
-        for scanner in ALL_SCANNERS:
+        for index, scanner in enumerate(ALL_SCANNERS):
+            if self._is_cancelled():
+                cancelled = True
+                break
+
+            progress = self._scanner_progress(index, scanner_count)
+            progress_label = f"Moteur {index + 1}/{scanner_count} : {scanner.display_name}"
+
             if not scanner.is_available():
                 result = scanner.scan(parts)
                 scanner_results.append(result)
@@ -187,6 +277,8 @@ class ScanEngine:
                     f"Analyse en cours — {media['label']}",
                     f"[{scanner.display_name}] ignoré — non installé",
                     scanner=scanner.display_name,
+                    progress=progress,
+                    progress_label=progress_label,
                 )
                 continue
 
@@ -195,15 +287,32 @@ class ScanEngine:
                 f"{scanner.display_name} — {media['label']}",
                 f"--- {scanner.display_name} ---",
                 scanner=scanner.display_name,
+                progress=progress,
+                progress_label=progress_label,
             )
 
-            result = scanner.scan(parts)
+            result = scanner.scan(
+                parts,
+                cancel_check=self._is_cancelled,
+                register_proc=self._register_proc,
+            )
             scanner_results.append(result)
             full_output += f"\n{'=' * 40}\n{scanner.display_name}\n{'=' * 40}\n{result.output}\n"
 
             for line in result.output.splitlines()[-15:]:
                 if line.strip():
                     self._set(STATE_SCANNING, f"{scanner.display_name} en cours...", line.rstrip())
+
+            if result.cancelled:
+                cancelled = True
+                self._set(
+                    STATE_SCANNING,
+                    "Annulation...",
+                    f"[{scanner.display_name}] analyse interrompue",
+                    progress=progress,
+                    progress_label="Annulation",
+                )
+                break
 
             if not result.skipped and not result.error:
                 any_success = True
@@ -213,12 +322,26 @@ class ScanEngine:
             if not result.skipped:
                 all_failed = all_failed and result.error
 
+        if cancelled:
+            report = self._build_report_header(timestamp, media, mount_point, scanner_results, 3)
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(report + full_output + "\nAnalyse annulée par l'utilisateur.\n")
+            self._finish_cancelled(temp_mount, mount_point, filename)
+            return
+
         if any_infected:
             overall = 1
         elif all_failed or not any_success:
             overall = 2
         else:
             overall = 0
+
+        self._set(
+            STATE_SCANNING,
+            "Finalisation du rapport...",
+            progress=PROGRESS_FINALIZE,
+            progress_label="Génération du rapport",
+        )
 
         report = self._build_report_header(timestamp, media, mount_point, scanner_results, overall)
         with open(log_path, "w", encoding="utf-8") as f:
@@ -230,6 +353,8 @@ class ScanEngine:
         if temp_mount:
             unmount_if_temporary(mount_point)
 
+        self._set(progress=100, progress_label="Terminé")
+
         if overall == 1:
             self._set(STATE_INFECTED, "Infection détectée ! Fichiers mis en quarantaine.", f"Log : {filename}")
         elif overall == 0:
@@ -237,8 +362,40 @@ class ScanEngine:
         else:
             self._set(STATE_ERROR, "Une erreur est survenue pendant l'analyse.", f"Log : {filename}")
 
-        self._set(STATE_IDLE, "Analyse terminée. Vous pouvez actualiser la liste ou analyser un autre média.", scanner="")
+        self._set(
+            STATE_IDLE,
+            "Analyse terminée. Vous pouvez actualiser la liste ou analyser un autre média.",
+            scanner="",
+            progress=0,
+            progress_label="",
+        )
         time.sleep(0.5)
+        try:
+            self.refresh_media()
+        except Exception:
+            pass
+
+    def _finish_cancelled(self, temp_mount: bool, mount_point: str | None, filename: str = ""):
+        if temp_mount and mount_point:
+            unmount_if_temporary(mount_point)
+        log_msg = f"Log partiel : {filename}" if filename else "Analyse interrompue."
+        self._set(
+            STATE_CANCELLED,
+            "Analyse annulée.",
+            log_msg,
+            scanner="",
+            progress=0,
+            progress_label="",
+        )
+        with self._lock:
+            self._cancel_requested = False
+        time.sleep(1.5)
+        self._set(
+            STATE_IDLE,
+            "Sélectionnez un média et lancez l'analyse.",
+            progress=0,
+            progress_label="",
+        )
         try:
             self.refresh_media()
         except Exception:

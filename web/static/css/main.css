@@ -100,6 +100,45 @@ code {
 .status-icon { font-size: 4rem; margin-bottom: 1rem; }
 .status-message { font-size: 1.3rem; font-weight: 500; }
 
+.progress-container {
+  margin-top: 1.75rem;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.progress-label { color: var(--muted); }
+.progress-percent { font-weight: 600; color: var(--accent); }
+
+.progress-bar {
+  height: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.btn-cancel-scan {
+  margin-top: 1rem;
+  width: 100%;
+}
+
 .scanners-banner {
   display: flex;
   justify-content: space-between;
@@ -132,6 +171,7 @@ code {
 .status-clean { background: #14532d; border-color: var(--success); }
 .status-infected { background: #450a0a; border-color: var(--infected); }
 .status-error, .status-multiple_usb { background: #451a03; border-color: var(--warning); }
+.status-cancelled { background: #3b1f2b; border-color: var(--danger); }
 
 .log-panel h2 { font-size: 1rem; color: var(--muted); margin-bottom: 0.75rem; }
 

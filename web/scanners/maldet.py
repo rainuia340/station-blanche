@@ -1,9 +1,8 @@
 """Scanner Linux Malware Detect (LMD / maldet)."""
 
 import os
-import subprocess
 
-from scanners.base import BaseScanner, ScannerResult
+from scanners.base import BaseScanner, ScannerResult, run_subprocess
 
 
 class MaldetScanner(BaseScanner):
@@ -13,7 +12,7 @@ class MaldetScanner(BaseScanner):
     def is_available(self) -> bool:
         return os.path.isfile("/usr/local/sbin/maldet")
 
-    def scan(self, paths: list[str]) -> ScannerResult:
+    def scan(self, paths, cancel_check=None, register_proc=None) -> ScannerResult:
         if not self.is_available():
             return ScannerResult(
                 self.name, self.display_name, -1, "", skipped=True, skip_reason="non installé"
@@ -25,18 +24,26 @@ class MaldetScanner(BaseScanner):
         last_code = 0
 
         for path in paths:
-            try:
-                proc = subprocess.run(
-                    ["/usr/local/sbin/maldet", "-a", path],
-                    capture_output=True, text=True, timeout=3600,
+            if cancel_check and cancel_check():
+                return ScannerResult(
+                    self.name, self.display_name, -1, "\n".join(output_parts), cancelled=True
                 )
-                block = f"--- maldet -a {path} ---\n{proc.stdout}{proc.stderr}"
+            try:
+                code, stdout, stderr, cancelled = run_subprocess(
+                    ["/usr/local/sbin/maldet", "-a", path],
+                    cancel_check=cancel_check,
+                    register_proc=register_proc,
+                )
+                if cancelled:
+                    return ScannerResult(
+                        self.name, self.display_name, -1, "\n".join(output_parts), cancelled=True
+                    )
+                block = f"--- maldet -a {path} ---\n{stdout}{stderr}"
                 output_parts.append(block)
-                last_code = proc.returncode
-                # maldet : 0 = propre, 1 = menace(s) détectée(s)
-                if proc.returncode == 1:
+                last_code = code
+                if code == 1:
                     infected = True
-                elif proc.returncode not in (0, 1):
+                elif code not in (0, 1):
                     error = True
             except Exception as exc:
                 output_parts.append(f"Erreur maldet sur {path}: {exc}")
@@ -49,10 +56,7 @@ class MaldetScanner(BaseScanner):
 
     def update_signatures(self) -> tuple[bool, str]:
         try:
-            proc = subprocess.run(
-                ["/usr/local/sbin/maldet", "-u"],
-                capture_output=True, text=True, timeout=300,
-            )
-            return proc.returncode == 0, proc.stdout + proc.stderr
+            code, stdout, stderr, _ = run_subprocess(["/usr/local/sbin/maldet", "-u"])
+            return code == 0, stdout + stderr
         except Exception as exc:
             return False, str(exc)

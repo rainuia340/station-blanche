@@ -116,6 +116,14 @@ def api_scan_start():
     return jsonify({"ok": True, "message": msg})
 
 
+@app.route("/api/scan/cancel", methods=["POST"])
+def api_scan_cancel():
+    ok, msg = scan_engine.cancel_scan()
+    if not ok:
+        return jsonify({"error": msg}), 409
+    return jsonify({"ok": True, "message": msg})
+
+
 @app.route("/api/scanners/status")
 def api_scanners_status():
     return jsonify(scanners_status())
