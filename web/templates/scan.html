@@ -11,7 +11,7 @@
     <header class="header">
       <a href="/" class="back-link">← Accueil</a>
       <h1>Analyse de média</h1>
-      <p class="subtitle">Clés USB, disques externes — NTFS, exFAT, ext4, FAT32</p>
+      <p class="subtitle">Clés USB, disques externes — NTFS, exFAT, ext4, FAT32, BitLocker</p>
     </header>
 
     <section id="scanners-info" class="scanners-banner">
@@ -60,6 +60,31 @@
       <pre id="scan-log" class="scan-log"></pre>
     </section>
   </main>
+
+  <div id="bitlocker-modal" class="modal hidden" role="dialog" aria-labelledby="bitlocker-modal-title">
+    <div class="modal-backdrop" id="bitlocker-backdrop"></div>
+    <div class="modal-card">
+      <h2 id="bitlocker-modal-title">Déverrouiller BitLocker</h2>
+      <p id="bitlocker-modal-device" class="muted"></p>
+      <form id="bitlocker-form" class="bitlocker-form">
+        <label for="bitlocker-password">Mot de passe BitLocker</label>
+        <input type="password" id="bitlocker-password" autocomplete="off" placeholder="Mot de passe du volume">
+
+        <p class="bitlocker-or">ou</p>
+
+        <label for="bitlocker-recovery">Clé de récupération (48 chiffres)</label>
+        <input type="text" id="bitlocker-recovery" autocomplete="off" placeholder="XXXXXX-XXXXXX-XXXXXX-...">
+
+        <p id="bitlocker-error" class="bitlocker-error hidden"></p>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-bitlocker-cancel" class="btn btn-secondary">Annuler</button>
+          <button type="submit" id="btn-bitlocker-unlock" class="btn btn-primary">Déverrouiller</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/static/js/scan.js"></script>
 </body>
 </html>

@@ -78,7 +78,7 @@ install_prerequisites() {
         git curl ca-certificates gnupg \
         python3 python3-flask python3-pyudev python3-psutil \
         clamav clamav-freshclam \
-        ntfs-3g exfatprogs util-linux \
+        ntfs-3g exfatprogs util-linux dislocker \
         ufw auditd rsyslog \
         xfconf network-manager \
         > /dev/null

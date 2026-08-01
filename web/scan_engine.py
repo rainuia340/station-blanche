@@ -200,6 +200,7 @@ class ScanEngine:
         device = media["device"]
         mount_point = None
         temp_mount = False
+        bitlocker_temp = False
         scanner_count = len(ALL_SCANNERS)
 
         filename, timestamp = self._build_log_filename(media["serial"], media["id"])
@@ -222,12 +223,16 @@ class ScanEngine:
         )
 
         if self._is_cancelled():
-            self._finish_cancelled(temp_mount, mount_point)
+            self._finish_cancelled(temp_mount, mount_point, device=device)
             return
 
         try:
+            if media.get("bitlocker") and media.get("bitlocker_locked"):
+                raise RuntimeError("Volume BitLocker verrouillé. Déverrouillez-le avant l'analyse.")
+
             if media["mounted"] and media["mountpoint"]:
                 mount_point = media["mountpoint"]
+                bitlocker_temp = bool(media.get("bitlocker"))
                 self._set(
                     STATE_SCANNING,
                     f"Utilisation du montage existant : {mount_point}",
@@ -250,7 +255,7 @@ class ScanEngine:
             return
 
         if self._is_cancelled():
-            self._finish_cancelled(temp_mount, mount_point)
+            self._finish_cancelled(temp_mount, mount_point, device=device)
             return
 
         parts = [mount_point]
@@ -326,7 +331,7 @@ class ScanEngine:
             report = self._build_report_header(timestamp, media, mount_point, scanner_results, 3)
             with open(log_path, "w", encoding="utf-8") as f:
                 f.write(report + full_output + "\nAnalyse annulée par l'utilisateur.\n")
-            self._finish_cancelled(temp_mount, mount_point, filename)
+            self._finish_cancelled(temp_mount, mount_point, filename, device=device)
             return
 
         if any_infected:
@@ -350,8 +355,8 @@ class ScanEngine:
         if self._copy_report(log_path, mount_point, filename):
             self._set(STATE_SCANNING, "Finalisation...", f"Rapport copié : {REPORT_DIR}/{filename}")
 
-        if temp_mount:
-            unmount_if_temporary(mount_point)
+        if temp_mount or bitlocker_temp:
+            unmount_if_temporary(mount_point, device)
 
         self._set(progress=100, progress_label="Terminé")
 
@@ -375,9 +380,9 @@ class ScanEngine:
         except Exception:
             pass
 
-    def _finish_cancelled(self, temp_mount: bool, mount_point: str | None, filename: str = ""):
-        if temp_mount and mount_point:
-            unmount_if_temporary(mount_point)
+    def _finish_cancelled(self, temp_mount: bool, mount_point: str | None, filename: str = "", device: str = ""):
+        if (temp_mount or (device and mount_point)) and mount_point:
+            unmount_if_temporary(mount_point, device or None)
         log_msg = f"Log partiel : {filename}" if filename else "Analyse interrompue."
         self._set(
             STATE_CANCELLED,

@@ -8,13 +8,19 @@ from typing import Any
 import psutil
 import pyudev
 
-MOUNT_BASE = "/mnt/station-blanche-scan"
+from bitlocker_manager import (
+    SCAN_MOUNT,
+    get_state,
+    is_bitlocker_partition,
+    is_unlocked,
+)
+
+MOUNT_BASE = SCAN_MOUNT
 SUPPORTED_FS = {
     "ntfs", "fuseblk", "ntfs-3g",
     "exfat", "vfat", "fat", "fat32",
     "ext4", "ext3", "ext2",
 }
-# Points de montage système à exclure
 SYSTEM_MOUNTS = {"/", "/boot", "/boot/efi", "/var", "/usr", "/home", "/tmp"}
 
 
@@ -31,11 +37,9 @@ def _disk_size_human(size_bytes: int) -> str:
 
 
 def _get_root_disk() -> str | None:
-    """Retourne le disque système (ex: sda) pour l'exclure."""
     for part in psutil.disk_partitions():
         if part.mountpoint == "/":
             name = os.path.basename(part.device)
-            # sda1 -> sda, nvme0n1p1 -> nvme0n1
             return re.sub(r"p?\d+$", "", name)
     return None
 
@@ -73,14 +77,20 @@ def _normalize_fstype(fstype: str) -> str:
     return fstype
 
 
+def _partition_size(device: str) -> int:
+    try:
+        with open(f"/sys/class/block/{os.path.basename(device)}/size") as f:
+            return int(f.read().strip()) * 512
+    except OSError:
+        return 0
+
+
 def refresh_devices() -> None:
-    """Force la re-détection des périphériques."""
     _run(["udevadm", "settle"], timeout=15)
     _run(["partprobe"], timeout=10)
 
 
 def list_media() -> list[dict[str, Any]]:
-    """Liste les partitions scannables (hors disque système)."""
     refresh_devices()
     context = pyudev.Context()
     root_disk = _get_root_disk()
@@ -90,7 +100,21 @@ def list_media() -> list[dict[str, Any]]:
     def is_system_disk(disk_name: str) -> bool:
         return bool(root_disk and disk_name == root_disk)
 
-    def add_media(device, disk_name, parent, label, serial, bus, fstype, size, mountpoint, mounted):
+    def add_media(
+        device,
+        disk_name,
+        parent,
+        label,
+        serial,
+        bus,
+        fstype,
+        size,
+        mountpoint,
+        mounted,
+        *,
+        bitlocker: bool = False,
+        bitlocker_locked: bool = False,
+    ):
         if device in seen_devices:
             return
         seen_devices.add(device)
@@ -107,9 +131,10 @@ def list_media() -> list[dict[str, Any]]:
             "mounted": mounted,
             "bus": bus,
             "removable": _is_removable(disk_name, parent) if parent else False,
+            "bitlocker": bitlocker,
+            "bitlocker_locked": bitlocker_locked,
         })
 
-    # Partitions montées
     for part in psutil.disk_partitions(all=False):
         device = part.device
         disk_name = re.sub(r"p?\d+$", "", os.path.basename(device))
@@ -126,21 +151,14 @@ def list_media() -> list[dict[str, Any]]:
         parent = udev_part.parent
         disk_udev_name = os.path.basename(parent.device_node) if parent and parent.device_node else disk_name
 
-        try:
-            with open(f"/sys/class/block/{os.path.basename(device)}/size") as f:
-                size = int(f.read().strip()) * 512
-        except OSError:
-            size = 0
-
         add_media(
             device, disk_udev_name, parent,
             udev_part.get("ID_FS_LABEL") or udev_part.get("ID_MODEL"),
             _get_serial(parent) if parent else "INCONNU",
             (parent.get("ID_BUS") if parent else None) or "unknown",
-            fstype or part.fstype, size, part.mountpoint, True,
+            fstype or part.fstype, _partition_size(device), part.mountpoint, True,
         )
 
-    # Partitions non montées (tous disques sauf système)
     for disk in context.list_devices(subsystem="block", DEVTYPE="disk"):
         disk_name = os.path.basename(disk.device_node)
         if is_system_disk(disk_name):
@@ -154,35 +172,46 @@ def list_media() -> list[dict[str, Any]]:
             if not device or device in seen_devices:
                 continue
 
+            size = _partition_size(device)
+            label = part.get("ID_FS_LABEL") or part.get("ID_MODEL")
             fstype = _normalize_fstype(_get_fstype(device))
-            if not fstype or fstype not in SUPPORTED_FS:
+
+            if fstype in SUPPORTED_FS:
+                add_media(device, disk_name, disk, label, serial, bus, fstype, size, None, False)
                 continue
 
-            try:
-                with open(f"/sys/class/block/{os.path.basename(device)}/size") as f:
-                    size = int(f.read().strip()) * 512
-            except OSError:
-                size = 0
+            if is_bitlocker_partition(device):
+                bl_state = get_state(device)
+                unlocked = bl_state["unlocked"]
+                add_media(
+                    device, disk_name, disk, label or "BitLocker",
+                    serial, bus, "bitlocker", size,
+                    bl_state["mountpoint"] if unlocked else None,
+                    unlocked,
+                    bitlocker=True,
+                    bitlocker_locked=not unlocked,
+                )
 
-            add_media(
-                device, disk_name, disk,
-                part.get("ID_FS_LABEL") or part.get("ID_MODEL"),
-                serial, bus, fstype, size, None, False,
-            )
-
-    media_list.sort(key=lambda m: (not m["mounted"], m["disk"], m["device"]))
+    media_list.sort(key=lambda m: (not m["mounted"], m["bitlocker_locked"], m["disk"], m["device"]))
     return media_list
 
 
 def mount_readonly(device: str) -> str:
-    """Monte une partition en lecture seule, retourne le point de montage."""
+    if is_unlocked(device):
+        mountpoint = get_state(device)["mountpoint"]
+        if mountpoint and os.path.ismount(mountpoint):
+            return mountpoint
+
     for part in psutil.disk_partitions():
         if part.device == device:
             return part.mountpoint
 
-    os.makedirs(MOUNT_BASE, exist_ok=True)
+    if is_bitlocker_partition(device):
+        raise RuntimeError(
+            "Volume BitLocker verrouillé. Déverrouillez-le avant l'analyse."
+        )
 
-    # Démontage propre si déjà utilisé
+    os.makedirs(MOUNT_BASE, exist_ok=True)
     _run(["umount", MOUNT_BASE])
 
     fstype = _get_fstype(device)
@@ -204,7 +233,13 @@ def mount_readonly(device: str) -> str:
     return MOUNT_BASE
 
 
-def unmount_if_temporary(mountpoint: str) -> None:
-    """Démonte si monté sur notre point temporaire."""
-    if mountpoint == MOUNT_BASE:
-        _run(["umount", MOUNT_BASE])
+def unmount_if_temporary(mountpoint: str, device: str | None = None) -> None:
+    if mountpoint != MOUNT_BASE:
+        return
+
+    if device and is_unlocked(device):
+        from bitlocker_manager import lock
+        lock(device)
+        return
+
+    _run(["umount", MOUNT_BASE])

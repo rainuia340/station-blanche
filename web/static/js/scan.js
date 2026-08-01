@@ -32,6 +32,17 @@ const progressFill = document.getElementById("progress-fill");
 const btnCancelScan = document.getElementById("btn-cancel-scan");
 const scanAnimation = document.getElementById("scan-animation");
 const scanTip = document.getElementById("scan-tip");
+const bitlockerModal = document.getElementById("bitlocker-modal");
+const bitlockerBackdrop = document.getElementById("bitlocker-backdrop");
+const bitlockerForm = document.getElementById("bitlocker-form");
+const bitlockerDeviceLabel = document.getElementById("bitlocker-modal-device");
+const bitlockerPassword = document.getElementById("bitlocker-password");
+const bitlockerRecovery = document.getElementById("bitlocker-recovery");
+const bitlockerError = document.getElementById("bitlocker-error");
+const btnBitlockerCancel = document.getElementById("btn-bitlocker-cancel");
+const btnBitlockerUnlock = document.getElementById("btn-bitlocker-unlock");
+
+let pendingBitlockerDevice = null;
 
 const SCAN_TIPS = [
   "Les virus n'ont aucune chance ici.",
@@ -94,40 +105,154 @@ function updateProgress(progress, label) {
   if (progressLabel && label) progressLabel.textContent = label;
 }
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function openBitlockerModal(device, label) {
+  pendingBitlockerDevice = device;
+  if (bitlockerDeviceLabel) {
+    bitlockerDeviceLabel.textContent = `${label} (${device})`;
+  }
+  if (bitlockerPassword) bitlockerPassword.value = "";
+  if (bitlockerRecovery) bitlockerRecovery.value = "";
+  if (bitlockerError) {
+    bitlockerError.textContent = "";
+    bitlockerError.classList.add("hidden");
+  }
+  if (bitlockerModal) bitlockerModal.classList.remove("hidden");
+  if (bitlockerPassword) bitlockerPassword.focus();
+}
+
+function closeBitlockerModal() {
+  pendingBitlockerDevice = null;
+  if (bitlockerModal) bitlockerModal.classList.add("hidden");
+}
+
+async function submitBitlockerUnlock(event) {
+  event.preventDefault();
+  if (!pendingBitlockerDevice) return;
+
+  const password = bitlockerPassword ? bitlockerPassword.value : "";
+  const recoveryKey = bitlockerRecovery ? bitlockerRecovery.value : "";
+
+  if (!password && !recoveryKey) {
+    if (bitlockerError) {
+      bitlockerError.textContent = "Indiquez un mot de passe ou une clé de récupération.";
+      bitlockerError.classList.remove("hidden");
+    }
+    return;
+  }
+
+  if (btnBitlockerUnlock) {
+    btnBitlockerUnlock.disabled = true;
+    btnBitlockerUnlock.textContent = "Déverrouillage...";
+  }
+
+  try {
+    const res = await fetch("/api/scan/bitlocker/unlock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        device: pendingBitlockerDevice,
+        password,
+        recovery_key: recoveryKey,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur de déverrouillage");
+
+    closeBitlockerModal();
+    renderMediaList(data.media);
+    if (message) message.textContent = data.message || "Volume déverrouillé.";
+    if (panel) panel.className = "status-panel status-clean";
+  } catch (err) {
+    if (bitlockerError) {
+      bitlockerError.textContent = err.message;
+      bitlockerError.classList.remove("hidden");
+    }
+  } finally {
+    if (btnBitlockerUnlock) {
+      btnBitlockerUnlock.disabled = false;
+      btnBitlockerUnlock.textContent = "Déverrouiller";
+    }
+  }
+}
+
+async function lockBitlocker(device) {
+  try {
+    const res = await fetch("/api/scan/bitlocker/lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erreur");
+    renderMediaList(data.media);
+  } catch (err) {
+    if (message) message.textContent = err.message;
+    if (panel) panel.className = "status-panel status-error";
+  }
+}
+
 function renderMediaList(media) {
   if (!mediaList) return;
 
   if (!media || !media.length) {
     mediaList.innerHTML = "<p class='muted media-empty'>Aucun média détecté. Branchez un disque ou une clé USB puis actualisez.</p>";
-    if (mediaHint) mediaHint.textContent = "Formats supportés : NTFS, exFAT, ext4, FAT32";
+    if (mediaHint) mediaHint.textContent = "Formats supportés : NTFS, exFAT, ext4, FAT32, BitLocker";
     return;
   }
 
   if (mediaHint) mediaHint.textContent = `${media.length} média(s) détecté(s)`;
 
-  mediaList.innerHTML = media.map((m) => `
+  mediaList.innerHTML = media.map((m) => {
+    const isBitlocker = m.bitlocker;
+    const locked = m.bitlocker_locked;
+    const actions = isBitlocker && locked
+      ? `<button class="btn btn-primary btn-bitlocker-unlock" data-device="${m.device}" data-label="${escapeHtml(m.label)}" ${isScanning ? "disabled" : ""}>Déverrouiller</button>`
+      : isBitlocker && !locked
+        ? `<button class="btn btn-secondary btn-bitlocker-lock" data-device="${m.device}" ${isScanning ? "disabled" : ""}>Verrouiller</button>
+           <button class="btn btn-primary btn-scan-media" data-device="${m.device}" ${isScanning ? "disabled" : ""}>Analyser</button>`
+        : `<button class="btn btn-primary btn-scan-media" data-device="${m.device}" ${isScanning ? "disabled" : ""}>Analyser</button>`;
+
+    return `
     <div class="media-card" data-device="${m.device}">
       <div class="media-card-info">
-        <div class="media-card-title">${m.label}</div>
+        <div class="media-card-title">${escapeHtml(m.label)}</div>
         <div class="media-card-meta">
-          <span class="media-tag">${m.device}</span>
-          <span class="media-tag">${m.fstype.toUpperCase()}</span>
-          <span class="media-tag">${m.size}</span>
-          <span class="media-tag">${m.bus === "usb" ? "USB" : m.bus}</span>
-          ${m.mounted
-            ? `<span class="media-tag media-tag-ok">Monté : ${m.mountpoint}</span>`
-            : `<span class="media-tag media-tag-warn">Non monté</span>`}
+          <span class="media-tag">${escapeHtml(m.device)}</span>
+          <span class="media-tag ${isBitlocker ? "media-tag-bitlocker" : ""}">${isBitlocker ? "BITLOCKER" : escapeHtml(m.fstype.toUpperCase())}</span>
+          <span class="media-tag">${escapeHtml(m.size)}</span>
+          <span class="media-tag">${m.bus === "usb" ? "USB" : escapeHtml(m.bus)}</span>
+          ${isBitlocker && locked
+            ? `<span class="media-tag media-tag-warn">Verrouillé</span>`
+            : isBitlocker
+              ? `<span class="media-tag media-tag-ok">Déverrouillé</span>`
+              : m.mounted
+                ? `<span class="media-tag media-tag-ok">Monté : ${escapeHtml(m.mountpoint)}</span>`
+                : `<span class="media-tag media-tag-warn">Non monté</span>`}
         </div>
-        <div class="media-card-serial">Série : ${m.serial}</div>
+        <div class="media-card-serial">Série : ${escapeHtml(m.serial)}</div>
       </div>
-      <button class="btn btn-primary btn-scan-media" data-device="${m.device}" ${isScanning ? "disabled" : ""}>
-        Analyser
-      </button>
-    </div>
-  `).join("");
+      <div class="media-card-actions">${actions}</div>
+    </div>`;
+  }).join("");
 
   mediaList.querySelectorAll(".btn-scan-media").forEach((btn) => {
     btn.addEventListener("click", () => startScan(btn.dataset.device));
+  });
+
+  mediaList.querySelectorAll(".btn-bitlocker-unlock").forEach((btn) => {
+    btn.addEventListener("click", () => openBitlockerModal(btn.dataset.device, btn.dataset.label));
+  });
+
+  mediaList.querySelectorAll(".btn-bitlocker-lock").forEach((btn) => {
+    btn.addEventListener("click", () => lockBitlocker(btn.dataset.device));
   });
 }
 
@@ -257,6 +382,18 @@ if (btnRefresh) {
 
 if (btnCancelScan) {
   btnCancelScan.addEventListener("click", cancelScan);
+}
+
+if (bitlockerForm) {
+  bitlockerForm.addEventListener("submit", submitBitlockerUnlock);
+}
+
+if (btnBitlockerCancel) {
+  btnBitlockerCancel.addEventListener("click", closeBitlockerModal);
+}
+
+if (bitlockerBackdrop) {
+  bitlockerBackdrop.addEventListener("click", closeBitlockerModal);
 }
 
 refreshMedia();

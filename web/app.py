@@ -124,6 +124,47 @@ def api_scan_cancel():
     return jsonify({"ok": True, "message": msg})
 
 
+@app.route("/api/scan/bitlocker/unlock", methods=["POST"])
+def api_bitlocker_unlock():
+    from bitlocker_manager import is_available, unlock
+
+    if not is_available():
+        return jsonify({"error": "Module BitLocker indisponible (installez dislocker)."}), 503
+
+    data = request.get_json(silent=True) or {}
+    device = data.get("device", "")
+    if not device:
+        return jsonify({"error": "Périphérique non spécifié"}), 400
+
+    ok, msg = unlock(
+        device,
+        password=data.get("password"),
+        recovery_key=data.get("recovery_key"),
+    )
+    if not ok:
+        return jsonify({"error": msg}), 400
+
+    media = scan_engine.refresh_media()
+    return jsonify({"ok": True, "message": msg, "media": media})
+
+
+@app.route("/api/scan/bitlocker/lock", methods=["POST"])
+def api_bitlocker_lock():
+    from bitlocker_manager import lock
+
+    data = request.get_json(silent=True) or {}
+    device = data.get("device", "")
+    if not device:
+        return jsonify({"error": "Périphérique non spécifié"}), 400
+
+    ok, msg = lock(device)
+    if not ok:
+        return jsonify({"error": msg}), 400
+
+    media = scan_engine.refresh_media()
+    return jsonify({"ok": True, "message": msg, "media": media})
+
+
 @app.route("/api/scanners/status")
 def api_scanners_status():
     return jsonify(scanners_status())
