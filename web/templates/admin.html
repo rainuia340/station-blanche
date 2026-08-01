@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Station Blanche</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="page-admin">
+  <main class="container container-wide">
+    <header class="header header-row">
+      <div>
+        <a href="/" class="back-link">← Accueil</a>
+        <h1>Administration</h1>
+      </div>
+      <button id="btn-logout" class="btn btn-secondary">Déconnexion</button>
+    </header>
+
+    <div class="admin-grid">
+      <section class="panel">
+        <h2>Mises à jour</h2>
+        <p>Mettre à jour la station ou les signatures des 3 moteurs antivirus (ClamAV, LMD, F-Prot).</p>
+        <div id="scanners-status" class="scanners-status muted">Chargement des moteurs...</div>
+        <div class="btn-group">
+          <button id="btn-update-station" class="btn btn-primary">MAJ Station Blanche</button>
+          <button id="btn-update-sigs" class="btn btn-primary">MAJ Signatures (tous moteurs)</button>
+        </div>
+        <pre id="update-output" class="output-box hidden"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Fond d'écran</h2>
+        <p>Choisir un fond prédéfini ou importer une image.</p>
+        <div id="wallpaper-presets" class="preset-grid"></div>
+        <form id="wallpaper-form" class="mt-1">
+          <label for="wallpaper-file">Ou importer une image</label>
+          <input type="file" id="wallpaper-file" accept="image/*">
+          <button type="submit" class="btn btn-primary">Appliquer</button>
+        </form>
+        <p id="wallpaper-msg" class="success-msg hidden"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Mot de passe administrateur</h2>
+        <form id="password-form">
+          <label for="current-password">Mot de passe actuel</label>
+          <input type="password" id="current-password" required>
+          <label for="new-password">Nouveau mot de passe</label>
+          <input type="password" id="new-password" required minlength="6">
+          <label for="confirm-password">Confirmer</label>
+          <input type="password" id="confirm-password" required minlength="6">
+          <button type="submit" class="btn btn-primary">Changer le mot de passe</button>
+        </form>
+        <p id="password-msg" class="success-msg hidden"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Mode kiosk</h2>
+        <p>Gérer l'affichage plein écran Firefox.</p>
+        <div class="btn-group">
+          <button id="btn-enable-kiosk" class="btn btn-primary">Activer le mode kiosk</button>
+          <button id="btn-disable-kiosk" class="btn btn-danger">Quitter le mode kiosk</button>
+        </div>
+        <p id="kiosk-msg" class="success-msg hidden"></p>
+      </section>
+
+      <section class="panel panel-full" id="network-panel">
+        <h2>Réseau</h2>
+        <p>Configurer les cartes Ethernet et Wi-Fi pour les mises à jour. La station doit rester hors réseau en usage normal.</p>
+
+        <div class="network-toolbar">
+          <button id="btn-network-refresh" class="btn btn-secondary">Actualiser</button>
+          <label class="wifi-radio-toggle">
+            <input type="checkbox" id="wifi-radio-toggle">
+            Wi-Fi activé
+          </label>
+        </div>
+        <p id="network-msg" class="success-msg hidden"></p>
+
+        <div id="network-devices" class="network-devices">
+          <p class="muted">Chargement des interfaces...</p>
+        </div>
+
+        <div class="wifi-section">
+          <h3>Connexion Wi-Fi</h3>
+          <div class="wifi-toolbar">
+            <select id="wifi-device-select" class="network-select">
+              <option value="">Interface Wi-Fi...</option>
+            </select>
+            <button id="btn-wifi-scan" class="btn btn-primary">Scanner les réseaux</button>
+          </div>
+          <div id="wifi-networks" class="wifi-networks">
+            <p class="muted">Cliquez sur « Scanner » pour détecter les réseaux disponibles.</p>
+          </div>
+          <form id="wifi-connect-form" class="wifi-connect-form hidden">
+            <p>Réseau sélectionné : <strong id="wifi-selected-ssid"></strong></p>
+            <label for="wifi-password">Mot de passe Wi-Fi</label>
+            <input type="password" id="wifi-password" placeholder="Mot de passe (laisser vide si ouvert)">
+            <button type="submit" class="btn btn-primary">Se connecter</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel panel-full">
+        <h2>Journal des analyses</h2>
+        <p>Historique des scans (format : Date-Heure-N°Série.log). Une copie est aussi déposée sur la clé dans <code>STATION_BLANCHE/</code>.</p>
+        <div class="logs-layout">
+          <div id="logs-list" class="logs-list">
+            <p class="muted">Chargement...</p>
+          </div>
+          <pre id="log-content" class="log-viewer">Sélectionnez un log pour afficher son contenu.</pre>
+        </div>
+      </section>
+
+      <section class="panel panel-full panel-danger">
+        <h2>Désinstallation</h2>
+        <p>Supprime Station Blanche et restaure Peppermint en configuration normale. Cette action est <strong>irréversible</strong>.</p>
+        <ul class="uninstall-list">
+          <li>Arrêt du service web et du mode kiosk</li>
+          <li>Suppression de l'utilisateur <code>station</code> et de l'auto-login</li>
+          <li>Suppression de <code>/opt/station-blanche</code> et de la configuration</li>
+          <li>Désactivation du pare-feu UFW et restauration des services</li>
+          <li>Redémarrage automatique</li>
+        </ul>
+        <form id="uninstall-form">
+          <label for="uninstall-password">Mot de passe administrateur</label>
+          <input type="password" id="uninstall-password" required>
+          <label for="uninstall-confirm">Tapez <code>DESINSTALLER</code> pour confirmer</label>
+          <input type="text" id="uninstall-confirm" required placeholder="DESINSTALLER" autocomplete="off">
+          <button type="submit" class="btn btn-danger">Désinstaller Station Blanche</button>
+        </form>
+        <p id="uninstall-msg" class="success-msg hidden"></p>
+      </section>
+    </div>
+  </main>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

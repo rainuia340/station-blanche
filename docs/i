@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Raccourci d'installation — redirige vers le script principal
+# Usage : curl -fsSL https://rainuia340.github.io/station-blanche/i | sudo bash
+exec bash <(curl -fsSL "https://raw.githubusercontent.com/rainuia340/station-blanche/main/install.sh") "$@"

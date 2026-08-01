@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion Admin — Station Blanche</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="page-admin">
+  <main class="container container-narrow">
+    <header class="header">
+      <a href="/" class="back-link">← Accueil</a>
+      <h1>Administration</h1>
+    </header>
+
+    <form id="login-form" class="form-panel">
+      <label for="username">Utilisateur</label>
+      <input type="text" id="username" name="username" value="admin" autocomplete="username">
+
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" name="password" autocomplete="current-password">
+
+      <button type="submit" class="btn btn-primary">Se connecter</button>
+      <p id="login-error" class="error-msg hidden"></p>
+    </form>
+  </main>
+  <script src="/static/js/admin.js"></script>
+</body>
+</html>

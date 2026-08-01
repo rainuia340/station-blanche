@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan USB — Station Blanche</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="page-scan">
+  <main class="container">
+    <header class="header">
+      <a href="/" class="back-link">← Accueil</a>
+      <h1>Analyse USB</h1>
+    </header>
+
+    <section id="scanners-info" class="scanners-banner">
+      <span id="scanners-list">Moteurs : chargement...</span>
+      <span id="current-scanner" class="current-scanner"></span>
+    </section>
+
+    <section id="status-panel" class="status-panel status-waiting">
+      <div id="status-icon" class="status-icon">⏳</div>
+      <p id="status-message" class="status-message">En attente d'une clé USB...</p>
+    </section>
+
+    <section class="log-panel">
+      <h2>Journal d'analyse</h2>
+      <pre id="scan-log" class="scan-log"></pre>
+    </section>
+  </main>
+  <script src="/static/js/scan.js"></script>
+</body>
+</html>
