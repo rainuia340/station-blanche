@@ -6,7 +6,7 @@ Poste isolé dédié à l'analyse antivirus des médias amovibles, avec **interf
 
 1. **Installer Peppermint OS normalement** (ISO officiel).
 2. **Lancer le script d'installation** qui contacte ce dépôt GitHub public et configure la station.
-3. Au **redémarrage** : auto-login de l'utilisateur `station` → Firefox en **mode kiosk** sur la page d'accueil web.
+3. Au **redémarrage** : auto-login de l'utilisateur `station` → navigateur en **mode kiosk** sur la page d'accueil web.
 
 ## Installation
 

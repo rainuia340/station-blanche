@@ -75,8 +75,7 @@ install_prerequisites() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
     apt-get install -y -qq \
-        git curl ca-certificates \
-        firefox \
+        git curl ca-certificates gnupg \
         python3 python3-flask python3-pyudev python3-psutil \
         clamav clamav-freshclam \
         ntfs-3g exfatprogs \
@@ -108,6 +107,7 @@ fetch_repo() {
 
 run_install_scripts() {
     local scripts=(
+        "scripts/install-browser.sh"
         "scripts/configure-users.sh"
         "scripts/configure-web.sh"
         "scripts/configure-scanners.sh"

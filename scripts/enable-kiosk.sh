@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_DIR="/opt/station-blanche"
 STATION_USER="station"
 AUTOSTART="/home/${STATION_USER}/.config/autostart/firefox-kiosk.desktop"
-REPO_DIR="/opt/station-blanche"
+BROWSER=$("$REPO_DIR/scripts/browser.sh")
 
 echo "[kiosk] Réactivation du mode kiosk..."
 
@@ -14,7 +15,7 @@ elif [[ ! -f "$AUTOSTART" ]]; then
     chown "${STATION_USER}:${STATION_USER}" "$AUTOSTART"
 fi
 
-pkill firefox 2>/dev/null || true
+pkill "$BROWSER" 2>/dev/null || true
 sleep 1
 
 sudo -u "$STATION_USER" DISPLAY=:0 bash "${REPO_DIR}/scripts/start-kiosk.sh" &

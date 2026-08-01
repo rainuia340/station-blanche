@@ -29,8 +29,9 @@ log "=== Début désinstallation Station Blanche ==="
 # Laisser le temps à l'API web de répondre si lancé depuis l'admin
 sleep 2
 
-# Arrêter Firefox kiosk
-pkill -u "$STATION_USER" firefox 2>/dev/null || pkill firefox 2>/dev/null || true
+# Arrêter le navigateur kiosk
+BROWSER=$("$INSTALL_DIR/scripts/browser.sh" 2>/dev/null || echo "firefox-esr")
+pkill -u "$STATION_USER" "$BROWSER" 2>/dev/null || pkill "$BROWSER" 2>/dev/null || true
 
 # Arrêter et supprimer le service web
 if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
